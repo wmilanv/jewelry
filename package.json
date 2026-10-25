@@ -1,7 +1,7 @@
 {
   "name": "atelier-vendome-monorepo",
   "private": true,
-  "packageManager": "pnpm@9.1.0",
+"packageManager": "pnpm@9.15.4",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",

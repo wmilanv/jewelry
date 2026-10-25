@@ -166,9 +166,25 @@ export default function CheckoutPage() {
             </div>
             <dl className="border-t border-line pt-4 space-y-2 text-sm">
               <div className="flex justify-between"><dt className="text-muted">Subtotal</dt><dd>{formatMoney(subtotal, settings)}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted">Envío</dt><dd>{shipping ? formatMoney(shipping, settings) : 'Gratis'}</dd></div>
+              <div className="flex justify-between"><dt className="text-muted">Envío</dt><dd>{shipping ? formatMoney(shipping, settings) : 'Gratis (Asegurado)'}</dd></div>
               <div className="flex justify-between text-lg pt-2 border-t border-line"><dt>Total</dt><dd className="font-display text-2xl text-accent">{formatMoney(total, settings)}</dd></div>
             </dl>
+
+            <div className="rounded-xl border border-line bg-surface/80 p-4 space-y-2.5 text-xs">
+              <span className="text-[10px] uppercase tracking-[0.25em] text-accent block font-medium">Garantías de la Maison</span>
+              <div className="flex items-start gap-2 text-muted">
+                <span className="text-accent font-serif">⚜️</span>
+                <span><b>Certificado Oficial:</b> Cada pieza se entrega con ficha gemológica y número de serie registrado.</span>
+              </div>
+              <div className="flex items-start gap-2 text-muted">
+                <span className="text-accent font-serif">🔒</span>
+                <span><b>Transporte con Seguro Total:</b> Cobertura del 100% hasta la entrega en mano propia.</span>
+              </div>
+              <div className="flex items-start gap-2 text-muted">
+                <span className="text-accent font-serif">✨</span>
+                <span><b>Ajuste de Talla Gratuito:</b> Primer redimensionamiento sin costo durante los primeros 60 días.</span>
+              </div>
+            </div>
           </aside>
         </div>
       </div>

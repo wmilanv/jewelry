@@ -4,7 +4,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ArrowRight, ArrowUpRight, Sparkles, Compass, ShieldCheck, Gem } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Sparkles, Compass, ShieldCheck, Gem, ChevronDown, Award, Star, Quote, CheckCircle2 } from 'lucide-react';
 import { formatMoney, useStoreData } from '@/store/useStoreData';
 import { Media } from '@/components/ui/Media';
 import { ProductCard } from '@/components/ui/ProductCard';
@@ -654,7 +654,122 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ======================= 8. PILARES DE LA MAISON ======================= */}
+      {/* ======================= 8. EL PROCESO DEL TALLER (SAVOIR-FAIRE EN 4 ACTOS) ======================= */}
+      <section className="max-w-7xl mx-auto px-6 md:px-8 pt-28">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14 border-b border-line pb-8">
+          <div>
+            <span className="eyebrow block mb-2">06 / Savoir-Faire en 4 Actos</span>
+            <SplitTitle text="El Arte del Taller" className="font-display uppercase text-5xl md:text-7xl leading-none" />
+          </div>
+          <p className="text-muted text-xs md:text-sm max-w-md leading-relaxed">
+            Desde el boceto a mano alzada hasta la entrega con escolta asegurada: cada pieza transita un rigor artesanal de más de 80 horas de taller.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-4 gap-6">
+          {[
+            {
+              num: 'I',
+              title: 'Gouache & Boceto',
+              desc: 'Pintura en acuarela sobre papel negro donde el diseñador define la luz, las facetas y las proporciones anatómicas de la mano.',
+              tag: 'Acuarela y Proporción Áurea',
+            },
+            {
+              num: 'II',
+              title: 'Escultura & Cera',
+              desc: 'Transformación del boceto en geometría tridimensional y fundición en crisol al vacío con Oro 18K reciclado certificado.',
+              tag: 'Micro-fusión Oro Ley 750',
+            },
+            {
+              num: 'III',
+              title: 'Engaste Micrométrico',
+              desc: 'El maestro engastador asegura cada diamante y esmeralda bajo microscopio Leica de 40x para máxima estabilidad y fuego de luz.',
+              tag: 'Técnica de Place Vendôme',
+            },
+            {
+              num: 'IV',
+              title: 'Lustre & Ficha GIA',
+              desc: 'Pulido tri-fásico a espejo en banco de madera, grabado láser del punzón de la Maison y certificación gemológica oficial.',
+              tag: 'Póliza y Certificado GIA/Muzo',
+            },
+          ].map((step, idx) => (
+            <Reveal key={step.num} delay={idx * 0.1} y={40} className="rounded-[1.8rem] border border-line bg-surface/40 p-6 md:p-8 flex flex-col justify-between space-y-6 hover:border-accent/60 transition group">
+              <div>
+                <div className="flex items-center justify-between text-accent font-display text-2xl mb-4">
+                  <span>ACTO {step.num}</span>
+                  <span className="w-8 h-8 rounded-full border border-accent/30 flex items-center justify-center text-xs group-hover:bg-accent group-hover:text-on-accent transition">
+                    0{idx + 1}
+                  </span>
+                </div>
+                <h4 className="font-display uppercase text-2xl text-ink group-hover:text-accent transition leading-tight mb-2">
+                  {step.title}
+                </h4>
+                <p className="text-xs text-muted leading-relaxed">{step.desc}</p>
+              </div>
+              <span className="text-[10px] uppercase tracking-[0.2em] text-accent/80 border-t border-line/40 pt-4 block font-medium">
+                {step.tag}
+              </span>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* ======================= 9. CARTAS DE NUESTROS CLIENTES ======================= */}
+      <section className="max-w-7xl mx-auto px-6 md:px-8 pt-28">
+        <div className="text-center max-w-2xl mx-auto mb-14 space-y-3">
+          <span className="eyebrow block">07 / Archivo de Confianza</span>
+          <SplitTitle text="Cartas de la Maison" className="font-display uppercase text-5xl md:text-7xl leading-none" />
+          <p className="text-xs md:text-sm text-muted">
+            Testimonios de anillos de compromiso, aniversarios y piezas únicas encargadas en nuestro taller.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          {[
+            {
+              quote: '«Ver el anillo en el personalizador 3D y luego recibirlo en Cartagena superó todas las expectativas. El verde de la esmeralda de Muzo es hipnótico.»',
+              client: 'Alejandro & Valeria',
+              city: 'Cartagena / Bogotá',
+              piece: 'Solitario Trilogía Muzo 2.1ct',
+            },
+            {
+              quote: '«El nivel de detalle del estuche, el lacre en oro y la caligrafía fue digno de la Rue de la Paix en París. Mi prometida no para de admirarlo.»',
+              client: 'Mauricio S.',
+              city: 'Miami, FL',
+              piece: 'Halo Céleste Pavé Diamantes GIA',
+            },
+            {
+              quote: '«Subimos el escudo familiar de mis abuelos al Estudio 2D a 3D y nos forjaron un anillo de sello en Oro Amarillo 18k que ahora es reliquia familiar.»',
+              client: 'Felipe & Diana C.',
+              city: 'Madrid / Medellín',
+              piece: 'Chevalière Sello Real 18K',
+            },
+          ].map((t, i) => (
+            <Reveal key={i} delay={i * 0.1} y={40} className="rounded-[2rem] border border-line bg-surface/30 p-8 flex flex-col justify-between space-y-6">
+              <div className="space-y-4">
+                <div className="flex gap-1 text-accent">
+                  {[...Array(5)].map((_, s) => (
+                    <Star key={s} className="w-3.5 h-3.5 fill-accent" />
+                  ))}
+                </div>
+                <p className="text-sm md:text-base text-ink/90 font-serif italic leading-relaxed">{t.quote}</p>
+              </div>
+              <div className="border-t border-line/60 pt-4">
+                <div className="font-display uppercase text-lg text-ink">{t.client}</div>
+                <div className="text-xs text-muted flex items-center justify-between mt-0.5">
+                  <span>{t.city}</span>
+                  <span className="text-accent text-[11px]">{t.piece}</span>
+                </div>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* ======================= 10. PREGUNTAS FRECUENTES (FAQ) ======================= */}
+      <HomeFaq />
+
+      {/* ======================= 11. PILARES DE LA MAISON ======================= */}
       <section className="max-w-7xl mx-auto px-6 md:px-8 pt-28">
         <div className="grid md:grid-cols-4 border-t border-line">
           {sections.benefits.map((b, i) => (
@@ -676,6 +791,66 @@ export default function HomePage() {
       {/* ======================= 9. NEWSLETTER ======================= */}
       <Newsletter title={sections.newsletterTitle} text={sections.newsletterText} />
     </div>
+  );
+}
+
+function HomeFaq() {
+  const [openIdx, setOpenIdx] = useState<number | null>(0);
+  const faqs = [
+    {
+      q: '¿Cómo puedo conocer la talla exacta si el anillo es una propuesta sorpresa?',
+      a: 'Nuestro equipo gemológico te orientará con métodos discretos (utilizando otro anillo de referencia o fotos de la mano). Además, todas las piezas de compromiso incluyen un primer ajuste de talla de cortesía 100% gratuito durante los primeros 60 días tras la entrega.',
+    },
+    {
+      q: '¿Qué certificados respaldan los diamantes y esmeraldas?',
+      a: 'Nuestros diamantes naturales a partir de 0.50 ct cuentan con certificado oficial del Gemological Institute of America (GIA) con número de serie micro-grabado a láser en el filetín. Nuestras esmeraldas provienen de las minas históricas de Muzo y Coscuez con certificación gemológica de pureza y tratamiento.',
+    },
+    {
+      q: '¿Cómo funciona la seguridad en el envío y el empaque?',
+      a: 'Cada joya viaja bajo póliza de seguro a todo riesgo con empresas de transporte de valores blindado (Brinks / FedEx Express) y requiere firma personal del titular. El empaque exterior es neutro y confidencial para garantizar máxima discreción.',
+    },
+    {
+      q: '¿Puedo llevar o rediseñar gemas heredadas de mi familia?',
+      a: 'Absolutamente. En nuestro salón de Bogotá y a través del Atelier Bespoke evaluamos gemas antiguas para desmontarlas, certificarlas e integrarlas en una montura contemporánea en Oro 18K manteniendo su valor sentimental y patrimonial.',
+    },
+  ];
+
+  return (
+    <section className="max-w-4xl mx-auto px-6 md:px-8 pt-28">
+      <div className="text-center mb-12 space-y-3">
+        <span className="eyebrow block">08 / Concierge & Dudas Frecuentes</span>
+        <SplitTitle text="Preguntas Frecuentes" className="font-display uppercase text-5xl md:text-7xl leading-none" />
+      </div>
+
+      <div className="space-y-4">
+        {faqs.map((f, i) => {
+          const isOpen = openIdx === i;
+          return (
+            <div
+              key={i}
+              className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
+                isOpen ? 'border-accent bg-surface/60 shadow-lg' : 'border-line bg-surface/30 hover:border-line/80'
+              }`}
+            >
+              <button
+                onClick={() => setOpenIdx(isOpen ? null : i)}
+                className="w-full p-5 md:p-6 text-left flex items-center justify-between gap-4 font-display uppercase text-lg md:text-xl text-ink"
+              >
+                <span>{f.q}</span>
+                <span className={`w-8 h-8 rounded-full border border-line flex items-center justify-center text-xs shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180 bg-accent text-on-accent border-accent' : ''}`}>
+                  <ChevronDown className="w-4 h-4" />
+                </span>
+              </button>
+              {isOpen && (
+                <div className="px-5 md:px-6 pb-6 pt-0 border-t border-line/40 text-xs md:text-sm text-muted leading-relaxed">
+                  <p className="mt-3">{f.a}</p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

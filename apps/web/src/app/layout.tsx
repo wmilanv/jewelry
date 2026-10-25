@@ -4,8 +4,28 @@ import { StoreProvider } from '@/components/StoreProvider';
 import { Shell } from '@/components/layout/Shell';
 
 export const metadata = {
-  title: 'Tienda online',
-  description: 'Tienda online configurable. Catálogo, carrito y pagos en línea.',
+  title: 'Atelier Vendôme · Haute Joaillerie & Bespoke 3D',
+  description:
+    'Maison de alta joyería en oro 18k, esmeraldas colombianas de Muzo y diamantes certificados GIA. Atelier de diseño 3D interactivo y piezas a medida en Bogotá y el mundo.',
+  keywords: [
+    'alta joyería',
+    'oro 18k',
+    'esmeraldas de muzo',
+    'diamantes GIA',
+    'anillos de compromiso',
+    'haute joaillerie',
+    'atelier bespoke 3d',
+    'joyas personalizadas',
+    'bogota',
+    'atelier vendome',
+  ],
+  openGraph: {
+    title: 'Atelier Vendôme · Haute Joaillerie & Bespoke 3D',
+    description:
+      'Maison de alta joyería en oro 18k, esmeraldas colombianas de Muzo y diamantes certificados GIA.',
+    type: 'website',
+    locale: 'es_CO',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

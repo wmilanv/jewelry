@@ -17,6 +17,12 @@ import {
   Wand2,
   Loader2,
   Box,
+  FileText,
+  MessageCircle,
+  Share2,
+  Copy,
+  X,
+  Printer,
 } from 'lucide-react';
 import { formatMoney, useStoreData } from '@/store/useStoreData';
 import { useCartStore } from '@/store/useCartStore';
@@ -313,6 +319,8 @@ function CustomizerInner() {
   const [lighting, setLighting] = useState<LightingMood>('studio');
   const [autoRotate, setAutoRotate] = useState(true);
   const [added, setAdded] = useState(false);
+  const [showDossier, setShowDossier] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   if (hydrated && !c.enabled) {
     return (
@@ -1139,7 +1147,15 @@ function CustomizerInner() {
 
               {/* Resumen de la ficha Bespoke */}
               <div className="rounded-2xl border border-white/10 bg-black/35 p-4 space-y-2 text-xs">
-                <div className="eyebrow mb-1">Certificado de Configuración</div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="eyebrow">Certificado de Configuración</span>
+                  <button
+                    onClick={() => setShowDossier(true)}
+                    className="text-[10px] uppercase tracking-wider text-accent hover:underline flex items-center gap-1 font-medium"
+                  >
+                    <FileText className="w-3.5 h-3.5" /> Ver Ficha Oficial
+                  </button>
+                </div>
                 <div className="flex justify-between"><span className="text-white/50">Tipo de Joya</span><span>{jTypeObj.label}</span></div>
                 <div className="flex justify-between"><span className="text-white/50">Montura</span><span>{setting.name}</span></div>
                 <div className="flex justify-between"><span className="text-white/50">Talla Gema</span><span>{cut.name} ({carats.toFixed(2)} ct)</span></div>
@@ -1152,7 +1168,7 @@ function CustomizerInner() {
         </div>
 
         {/* Footer de precio y acción */}
-        <div className="border-t border-white/10 p-6 space-y-4 bg-black/50">
+        <div className="border-t border-white/10 p-6 space-y-3 bg-black/50">
           <div className="flex justify-between items-baseline">
             <div>
               <span className="text-[10px] uppercase tracking-[0.25em] text-white/50 block">Valor de la Creación</span>
@@ -1160,10 +1176,11 @@ function CustomizerInner() {
             </div>
             <span className="font-display text-3xl text-accent">{formatMoney(total, settings)}</span>
           </div>
-          <button onClick={add} className="btn-primary w-full !bg-accent !text-on-accent hover:brightness-110">
+
+          <button onClick={add} className="btn-primary w-full !bg-accent !text-on-accent hover:brightness-110 shadow-xl">
             {added ? (
               <>
-                <Check className="w-4 h-4" /> Añadido a tu selección
+                <Check className="w-4 h-4" /> Añadido a tu joyero
               </>
             ) : (
               <>
@@ -1171,8 +1188,126 @@ function CustomizerInner() {
               </>
             )}
           </button>
+
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              onClick={() => setShowDossier(true)}
+              className="py-2.5 px-3 rounded-full border border-white/20 text-white/80 hover:text-white hover:border-white/50 text-[10px] uppercase tracking-wider transition flex items-center justify-center gap-1.5"
+            >
+              <FileText className="w-3.5 h-3.5 text-accent" /> Ficha Técnica
+            </button>
+            <button
+              onClick={() => {
+                const text = [
+                  `*Atelier Vendôme · Solicitud de Cita & Ficha Bespoke 3D*`,
+                  `• Pieza: ${jTypeObj.label} (${setting.name})`,
+                  `• Talla de Gema: ${cut.name} (${carats.toFixed(2)} ct)`,
+                  `• Piedra Central: ${gem.name}`,
+                  `• Aro & Metal: ${band.name} en ${metal.name}`,
+                  `• Acabado: ${finish.label}`,
+                  jewelryType === 'ring' ? `• Talla Anillo: ${ringSize} (US / Colombia)` : '',
+                  engraving ? `• Caligrafía Interior: "${engraving}"` : '',
+                  `• Cotización Estimada: ${formatMoney(total, settings)}`,
+                  '',
+                  'Hola, he diseñado esta pieza en su Atelier 3D y deseo coordinar su manufactura con un gemólogo de la Maison.',
+                ].filter(Boolean).join('\n');
+                const wa = settings.contact.whatsapp.replace(/\D/g, '');
+                window.open(`https://wa.me/${wa}?text=${encodeURIComponent(text)}`, '_blank');
+              }}
+              className="py-2.5 px-3 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 text-[10px] uppercase tracking-wider transition flex items-center justify-center gap-1.5 font-medium"
+            >
+              <MessageCircle className="w-3.5 h-3.5" /> Cotizar con VIP
+            </button>
+          </div>
         </div>
       </aside>
+
+      {/* Modal Ficha Técnica Oficial / Dossier Bespoke */}
+      {showDossier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="relative w-full max-w-xl rounded-[2.2rem] bg-[#0c0c11] border border-accent/40 p-6 md:p-10 shadow-2xl space-y-6 text-[#f4efe6] max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div>
+                <span className="text-[10px] uppercase tracking-[0.3em] text-accent block">Dossier de Haute Joaillerie</span>
+                <h3 className="font-display uppercase text-2xl mt-0.5">Ficha Técnica Oficial Bespoke</h3>
+              </div>
+              <button
+                onClick={() => setShowDossier(false)}
+                className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center hover:bg-white hover:text-black transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <span className="font-display uppercase text-xl text-accent">{setting.name}</span>
+                <span className="text-[10px] uppercase tracking-widest text-white/50">{jTypeObj.label}</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="text-white/45 block text-[10px] uppercase tracking-wider">Gema Principal</span>
+                  <span className="font-medium text-white">{gem.name} ({carats.toFixed(2)} Carats)</span>
+                </div>
+                <div>
+                  <span className="text-white/45 block text-[10px] uppercase tracking-wider">Corte / Talla</span>
+                  <span className="font-medium text-white">{cut.name}</span>
+                </div>
+                <div>
+                  <span className="text-white/45 block text-[10px] uppercase tracking-wider">Metal Noble</span>
+                  <span className="font-medium text-white">{metal.name}</span>
+                </div>
+                <div>
+                  <span className="text-white/45 block text-[10px] uppercase tracking-wider">Aro & Acabado</span>
+                  <span className="font-medium text-white">{band.name} ({finish.label})</span>
+                </div>
+                {jewelryType === 'ring' && (
+                  <div>
+                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Medida / Talla</span>
+                    <span className="font-medium text-accent">Talla {ringSize} (US / Colombia)</span>
+                  </div>
+                )}
+                {engraving && (
+                  <div>
+                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Grabado Láser</span>
+                    <span className="font-medium text-white">&ldquo;{engraving}&rdquo;</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-white/10 pt-4 flex items-baseline justify-between">
+                <span className="text-xs uppercase tracking-wider text-white/50">Valor Estimado</span>
+                <span className="font-display text-2xl text-accent">{formatMoney(total, settings)}</span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-white/50 leading-relaxed text-center">
+              Esta ficha técnica es válida por 30 días para cotización y reserva en nuestro salón de Bogotá o mediante cita privada virtual con un gemólogo.
+            </p>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => {
+                  const text = `Atelier Vendôme - Ficha Bespoke: ${setting.name}, ${cut.name} ${carats.toFixed(2)}ct, ${gem.name}, ${metal.name}, ${band.name}. Estimación: ${formatMoney(total, settings)}`;
+                  navigator.clipboard.writeText(text);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="btn-outline flex-1 text-center flex items-center justify-center gap-1.5 !text-xs !py-3 !border-white/20 !text-white"
+              >
+                {copied ? <><Check className="w-3.5 h-3.5 text-accent" /> Copiado</> : <><Copy className="w-3.5 h-3.5" /> Copiar Ficha</>}
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="btn-outline flex-1 text-center flex items-center justify-center gap-1.5 !text-xs !py-3 !border-white/20 !text-white"
+              >
+                <Printer className="w-3.5 h-3.5" /> Imprimir Dossier
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

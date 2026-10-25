@@ -489,8 +489,8 @@ function CustomizerForm() {
   const c = settings.customizer;
   return (
     <>
-      <Title sub="Visor 3D de anillos. Desactívalo si tu tienda vende otro tipo de producto.">Personalizador 3D</Title>
-      <Section title="General">
+      <Title sub="Estudio Bespoke 3D con 12 siluetas de montura, 10 cortes de gema, 8 perfiles de aro, collares, aretes, brazaletes y Escultor IA 2D → 3D (Relieve instantáneo gratis + Meshy AI / Tripo3D + carga de .GLB).">Personalizador 3D & IA</Title>
+      <Section title="General e Inteligencia Artificial 2D → 3D">
         <Check label="Activar personalizador" path="customizer.enabled" />
         <Check label="Permitir grabado" path="customizer.engraving" />
         <F label="Texto en el menú" path="customizer.navLabel" />
@@ -499,7 +499,47 @@ function CustomizerForm() {
         <F label="Precio base" path="customizer.basePrice" type="number" />
         <F label="Quilates mínimos" path="customizer.minCarats" type="number" />
         <F label="Quilates máximos" path="customizer.maxCarats" type="number" />
+        <F label="API Key de Meshy AI / Tripo3D (Opcional)" path="customizer.meshyApiKey" hint="El escultor 2D→3D en relieve funciona 100% gratis sin API key. Si agregas tu llave de meshy.ai o tripo3d.ai aquí, los clientes también podrán generar mallas .GLB completas en la nube." />
       </Section>
+
+      {(c.settings?.length ?? 0) > 0 && (
+        <section className="border border-line bg-surface p-6 mb-6 space-y-3">
+          <h2 className="eyebrow">Siluetas de Montura 3D (Nombre, subtítulo y recargo)</h2>
+          {c.settings!.map((st, i) => (
+            <div key={st.id} className="grid sm:grid-cols-[180px_1fr_140px] gap-2 items-center">
+              <input className="input" value={st.name} onChange={(e) => update((s) => { s.customizer.settings![i].name = e.target.value; return s; })} />
+              <input className="input" value={st.subtitle} onChange={(e) => update((s) => { s.customizer.settings![i].subtitle = e.target.value; return s; })} />
+              <input type="number" className="input" value={st.priceDelta} onChange={(e) => update((s) => { s.customizer.settings![i].priceDelta = Number(e.target.value); return s; })} />
+            </div>
+          ))}
+        </section>
+      )}
+
+      {(c.cuts?.length ?? 0) > 0 && (
+        <section className="border border-line bg-surface p-6 mb-6 space-y-3">
+          <h2 className="eyebrow">Cortes / Tallas de Gema 3D (Nombre, subtítulo y recargo)</h2>
+          {c.cuts!.map((ct, i) => (
+            <div key={ct.id} className="grid sm:grid-cols-[180px_1fr_140px] gap-2 items-center">
+              <input className="input" value={ct.name} onChange={(e) => update((s) => { s.customizer.cuts![i].name = e.target.value; return s; })} />
+              <input className="input" value={ct.subtitle} onChange={(e) => update((s) => { s.customizer.cuts![i].subtitle = e.target.value; return s; })} />
+              <input type="number" className="input" value={ct.priceDelta} onChange={(e) => update((s) => { s.customizer.cuts![i].priceDelta = Number(e.target.value); return s; })} />
+            </div>
+          ))}
+        </section>
+      )}
+
+      {(c.bands?.length ?? 0) > 0 && (
+        <section className="border border-line bg-surface p-6 mb-6 space-y-3">
+          <h2 className="eyebrow">Perfiles de Aro 3D (Nombre, subtítulo y recargo)</h2>
+          {c.bands!.map((bd, i) => (
+            <div key={bd.id} className="grid sm:grid-cols-[180px_1fr_140px] gap-2 items-center">
+              <input className="input" value={bd.name} onChange={(e) => update((s) => { s.customizer.bands![i].name = e.target.value; return s; })} />
+              <input className="input" value={bd.subtitle} onChange={(e) => update((s) => { s.customizer.bands![i].subtitle = e.target.value; return s; })} />
+              <input type="number" className="input" value={bd.priceDelta} onChange={(e) => update((s) => { s.customizer.bands![i].priceDelta = Number(e.target.value); return s; })} />
+            </div>
+          ))}
+        </section>
+      )}
 
       <section className="border border-line bg-surface p-6 mb-6 space-y-3">
         <div className="flex justify-between"><h2 className="eyebrow">Metales</h2>

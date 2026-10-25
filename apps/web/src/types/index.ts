@@ -5,6 +5,44 @@
 
 export type ArtKind = 'ring' | 'necklace' | 'earrings' | 'bracelet' | 'watch' | 'box';
 
+export type JewelryTypeKey = 'ring' | 'necklace' | 'earrings' | 'bracelet' | 'ai-relief' | 'glb-custom';
+
+export type SettingStyleKey =
+  | 'solitaire'
+  | 'halo'
+  | 'three-stone'
+  | 'bezel'
+  | 'cathedral'
+  | 'vintage'
+  | 'toi-et-moi'
+  | 'cluster'
+  | 'tension'
+  | 'signet'
+  | 'bypass'
+  | 'tiara';
+
+export type CutShapeKey =
+  | 'round'
+  | 'emerald'
+  | 'oval'
+  | 'princess'
+  | 'pear'
+  | 'marquise'
+  | 'cushion'
+  | 'heart'
+  | 'asscher'
+  | 'baguette';
+
+export type BandStyleKey =
+  | 'plain'
+  | 'pave'
+  | 'twisted'
+  | 'split'
+  | 'knife'
+  | 'beaded'
+  | 'channel'
+  | 'chevron';
+
 /** Opción seleccionable de un producto (ej: Talla, Material, Color). */
 export interface ProductOption {
   name: string;
@@ -48,6 +86,24 @@ export interface Category {
   art: { kind: ArtKind; color: string };
 }
 
+export interface CustomizerSettingStyle {
+  id: SettingStyleKey;
+  name: string;
+  subtitle: string;
+  priceDelta: number;
+}
+export interface CustomizerCutShape {
+  id: CutShapeKey;
+  name: string;
+  subtitle: string;
+  priceDelta: number;
+}
+export interface CustomizerBandStyle {
+  id: BandStyleKey;
+  name: string;
+  subtitle: string;
+  priceDelta: number;
+}
 export interface CustomizerMetal {
   id: string;
   name: string;
@@ -131,6 +187,10 @@ export interface StoreSettings {
     minCarats: number;
     maxCarats: number;
     engraving: boolean;
+    meshyApiKey?: string;
+    settings?: CustomizerSettingStyle[];
+    cuts?: CustomizerCutShape[];
+    bands?: CustomizerBandStyle[];
     metals: CustomizerMetal[];
     gems: CustomizerGem[];
   };
@@ -145,11 +205,18 @@ export interface CatalogData {
 /* ---------- Carrito y pedidos ---------- */
 
 export interface BespokeConfig {
+  jewelryType?: string;
+  settingStyle?: string;
+  cutShape?: string;
+  bandStyle?: string;
   metal: string;
   gemstone: string;
+  sideGemstone?: string;
   carats: number;
   ringSize: number;
+  finish?: string;
   engravingText?: string;
+  customReferenceImage?: string;
 }
 
 export interface CartItem {

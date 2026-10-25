@@ -38,7 +38,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     root.setProperty('--on-accent', lum > 0.6 ? '10 10 13' : '255 255 255');
     root.setProperty(
       '--font-display',
-      theme.fontStyle === 'serif' ? "'Cormorant Garamond', Georgia, serif" : "'Inter', system-ui, sans-serif",
+      theme.fontStyle === 'serif' ? "'Italiana', Georgia, serif" : "'Inter', system-ui, sans-serif",
     );
   }, [theme]);
 

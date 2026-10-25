@@ -1,0 +1,107 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum MetalType {
+  GOLD_18K
+  ROSE_GOLD
+  PLATINUM_950
+  NOIR_BRONZE
+}
+
+enum GemstoneType {
+  DIAMOND_FLAWLESS
+  EMERALD_MUZO
+  SAPPHIRE_CEYLON
+  RUBY_PIGEON
+  ONYX_STELLAR
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  CRAFTING_IN_ATELIER
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentGateway {
+  WOMPI_COLOMBIA
+  PSE
+  NEQUI
+  CARD
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  fullName  String?
+  phone     String?
+  address   String?
+  city      String?  @default("Bogotá")
+  country   String   @default("Colombia")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  sku         String   @unique
+  title       String
+  subtitle    String?
+  description String
+  basePrice   Decimal  @db.Decimal(12, 2)
+  collection  String
+  images      String[]
+  isCustomizable Boolean @default(true)
+  stock       Int      @default(5)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BespokeConfiguration {
+  id             String       @id @default(uuid())
+  orderItemId    String       @unique
+  metal          MetalType
+  gemstone       GemstoneType
+  carats         Float
+  ringSize       Float
+  engravingText  String?
+  previewSnapshot String?
+  orderItem      OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id              String         @id @default(uuid())
+  reference       String         @unique // Referencia para Wompi
+  customerId      String
+  customer        Customer       @relation(fields: [customerId], references: [id])
+  status          OrderStatus    @default(PENDING_PAYMENT)
+  totalAmountCOP  Decimal        @db.Decimal(14, 2)
+  gateway         PaymentGateway @default(WOMPI_COLOMBIA)
+  transactionId   String?        @unique
+  wompiChecksum   String?
+  paymentMetadata Json?
+  items           OrderItem[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model OrderItem {
+  id              String                @id @default(uuid())
+  orderId         String
+  order           Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  title           String
+  unitPriceCOP    Decimal               @db.Decimal(12, 2)
+  quantity        Int                   @default(1)
+  isBespoke       Boolean               @default(false)
+  bespokeConfig   BespokeConfiguration?
+}

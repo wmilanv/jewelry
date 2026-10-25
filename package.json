@@ -1,0 +1,17 @@
+{
+  "name": "atelier-vendome-monorepo",
+  "private": true,
+  "packageManager": "pnpm@9.1.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "db:push": "turbo run db:push",
+    "db:generate": "turbo run db:generate",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.4",
+    "typescript": "^5.4.5"
+  }
+}

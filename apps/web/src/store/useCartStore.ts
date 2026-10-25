@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { CartItemDTO } from '@vendome/types';
+import { CartItemDTO } from '../types/index';
 
 interface CartStore {
   items: CartItemDTO[];

@@ -1,60 +1,54 @@
-# ATELIER VENDÔME — Monorepo de Lujo & Alta Joyería 3D
+# Tienda online configurable (joyería y cualquier otro rubro)
 
-Plataforma de alta joyería personalizada con visualizador 3D en tiempo real (React Three Fiber / Three.js), e-commerce editorial, backend seguro en NestJS blindado contra Prototype Pollution, integración de pagos en Colombia (Wompi / PSE / Nequi / Tarjetas) y base de datos PostgreSQL / Supabase.
+E-commerce en Next.js listo para vender: catálogo, carrito, checkout (Wompi / WhatsApp), panel de administración y, opcionalmente, un visor 3D para personalizar anillos.
+Todo el contenido (marca, colores, textos, productos, categorías, envíos) se edita desde **/admin**; no hay que tocar código.
 
----
+## Inicio rápido
 
-## 🚀 Despliegue en Vercel (1-Click o CLI)
-
-Como asistente de IA no tengo acceso directo a tus credenciales de Vercel (por estrictas normas de seguridad y privacidad), pero este proyecto está **100% preconfigurado para Vercel**:
-
-### Opción A: Desde GitHub a Vercel (Recomendada)
-1. Descomprime este archivo `.zip`.
-2. Inicializa git y súbelo a tu repositorio de GitHub:
-   ```bash
-   git init
-   git add .
-   git commit -m "feat: initial commit atelier vendome"
-   git branch -M main
-   git remote add origin https://github.com/TU_USUARIO/atelier-vendome.git
-   git push -u origin main
-   ```
-3. Entra a [Vercel Dashboard](https://vercel.com/dashboard) -> **Add New Project** -> Selecciona tu repositorio.
-4. En **Root Directory**, selecciona `apps/web` (o deja la raíz con `vercel.json`).
-5. Agrega las variables de entorno (`.env.example`) y haz clic en **Deploy**.
-
-### Opción B: Con Vercel CLI
 ```bash
-pnpm install -g vercel
 cd apps/web
-vercel
+npm install      # o pnpm install
+npm run dev      # http://localhost:3000
 ```
 
----
+| Ruta | Descripción |
+|---|---|
+| `/` | Portada (hero, categorías, destacados, beneficios) |
+| `/tienda` | Catálogo con búsqueda, filtros y orden |
+| `/producto/[slug]` | Detalle con opciones (talla, material…) |
+| `/personalizador` | Visor 3D de anillos (se puede desactivar) |
+| `/checkout` | Datos de envío y pago |
+| `/admin` | Panel de administración (contraseña por defecto: `admin123`) |
 
-## 🗄️ Conexión a Base de Datos (Supabase / PostgreSQL)
+## Configurar para un cliente nuevo
 
-1. En **Supabase** (o tu PostgreSQL local):
-   - Crea un nuevo proyecto en [supabase.com](https://supabase.com).
-   - En **Project Settings -> Database**, copia la URL de conexión en modo Transaction pooler o Direct:
-     `postgresql://postgres:[PASSWORD]@db.[REF].supabase.co:5432/postgres`
-2. Configura tu archivo `.env` en `apps/api` o en `packages/database`:
-   ```env
-   DATABASE_URL="postgresql://postgres:tu_password@db.supabase.co:5432/postgres"
-   DIRECT_URL="postgresql://postgres:tu_password@db.supabase.co:5432/postgres"
-   ```
-3. Ejecuta las migraciones de Prisma:
-   ```bash
-   pnpm db:push
-   # o para generar el cliente:
-   pnpm db:generate
-   ```
+1. Entra a `/admin` → **Datos y plantillas** y carga una plantilla (*Joyería* o *Tienda general*).
+2. **Ajustes de tienda**: nombre, logo, color, tema claro/oscuro, moneda, WhatsApp, envíos, textos de portada.
+3. **Categorías** y **Productos**: precios, fotos, stock, opciones (`Talla: S, M, L`, `Metal: Oro, Plata +50000`) y especificaciones.
+4. Si no vendes anillos, desactiva el **Personalizador 3D**.
 
----
+## Cómo se guardan los datos (importante)
 
-## 📦 Estructura del Monorepo
+- `apps/web/src/data/catalog.ts` es el catálogo **publicado** con la web.
+- Lo que edites en `/admin` se guarda en el `localStorage` del navegador (sirve para preparar y previsualizar).
+- Para **publicar**: `/admin` → *Datos y plantillas* → exportar JSON → pegarlo en `DEFAULT_CATALOG` de `catalog.ts` → subir `CATALOG_VERSION` → desplegar.
+- Para un panel multiusuario con base de datos central (Supabase/Postgres + `apps/api`), el siguiente paso es sustituir `useStoreData` por llamadas a la API.
 
-- `apps/web`: Next.js 14/15 (App Router), React Three Fiber, Zustand (Carrito y personalizador 3D), Checkout Wompi Colombia.
-- `apps/api`: Backend NestJS, protección contra Prototype Pollution, cálculo criptográfico SHA-256 de Wompi, webhooks y API de órdenes.
-- `packages/database`: Prisma ORM configurado con modelos de Joyas, Gemas, Metales, Carrito y Órdenes para PostgreSQL / Supabase.
-- `packages/types`: Interfaces TypeScript compartidas.
+## Variables de entorno (`apps/web`)
+
+| Variable | Uso |
+|---|---|
+| `NEXT_PUBLIC_ADMIN_PASSWORD` | Contraseña del panel. **Cámbiala.** Es una protección básica del lado del cliente. |
+| `NEXT_PUBLIC_API_URL` | URL del backend (`apps/api`) para pagos Wompi. Sin ella, el checkout usa pedidos por WhatsApp. |
+
+El backend (`apps/api`) usa las variables de `.env.example` (Wompi y base de datos).
+
+## Despliegue en Vercel
+
+Importa el repositorio, **Root Directory = `apps/web`**, define las variables y despliega.
+
+## Estructura
+
+- `apps/web`: tienda Next.js 14 + Tailwind + Zustand + React Three Fiber.
+- `apps/api`: NestJS (firma de integridad y webhooks de Wompi, órdenes).
+- `packages/database`: modelos Prisma (PostgreSQL/Supabase).

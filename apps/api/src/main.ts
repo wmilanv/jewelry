@@ -49,6 +49,6 @@ async function bootstrap() {
   app.setGlobalPrefix('v1');
   const port = process.env.PORT || 4000;
   await app.listen(port);
-  console.log(`[Atelier Vendôme API] Corriendo en puerto ${port}`);
+  console.log(`[Store API] Corriendo en puerto ${port}`);
 }
 bootstrap();

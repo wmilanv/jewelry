@@ -1,22 +1,22 @@
 /** @type {import('tailwindcss').Config} */
+const v = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+
 module.exports = {
-  content: [
-    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
-  ],
+  content: ['./src/**/*.{js,ts,jsx,tsx,mdx}'],
   theme: {
     extend: {
       colors: {
-        gold: {
-          light: '#f5e8cf',
-          DEFAULT: '#c5a880',
-          dark: '#937852',
-        },
+        bg: v('bg'),
+        surface: v('surface'),
+        line: v('line'),
+        ink: v('ink'),
+        muted: v('muted'),
+        accent: v('accent'),
+        'on-accent': v('on-accent'),
       },
       fontFamily: {
-        serif: ['Cinzel', 'Playfair Display', 'serif'],
-        mono: ['Space Mono', 'monospace'],
+        display: ['var(--font-display)', 'serif'],
+        sans: ['var(--font-body)', 'system-ui', 'sans-serif'],
       },
     },
   },

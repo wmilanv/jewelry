@@ -1,18 +1,28 @@
 import './globals.css';
 import React from 'react';
-import { CartDrawer } from '@/components/cart/CartDrawer';
+import { StoreProvider } from '@/components/StoreProvider';
+import { Shell } from '@/components/layout/Shell';
 
 export const metadata = {
-  title: 'ATELIER VENDÔME • Haute Joaillerie & 3D Bespoke',
-  description: 'Maison de haute joaillerie contemporaine. Créations sur-mesure et pièces uniques.',
+  title: 'Tienda online',
+  description: 'Tienda online configurable. Catálogo, carrito y pagos en línea.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className="bg-[#08080a] text-neutral-100 min-h-screen">
-        {children}
-        <CartDrawer />
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="bg-bg text-ink min-h-screen">
+        <StoreProvider>
+          <Shell>{children}</Shell>
+        </StoreProvider>
       </body>
     </html>
   );

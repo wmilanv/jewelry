@@ -2,146 +2,174 @@
 import React, { useState } from 'react';
 import Script from 'next/script';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, Lock, MessageCircle } from 'lucide-react';
+import { formatMoney, useStoreData } from '@/store/useStoreData';
 import { useCartStore } from '@/store/useCartStore';
-import { ShieldCheck, ArrowLeft, Lock } from 'lucide-react';
+import { Media } from '@/components/ui/Media';
+import type { OrderRecord } from '@/types';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export default function CheckoutPage() {
-  const { items, getTotalCOP } = useCartStore();
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const settings = useStoreData((s) => s.settings);
+  const addOrder = useStoreData((s) => s.addOrder);
+  const { items, getSubtotal, clearCart } = useCartStore();
+  const [form, setForm] = useState({ name: '', email: '', phone: '', address: '', city: '', notes: '' });
+  const [loading, setLoading] = useState<'' | 'wompi' | 'whatsapp'>('');
+  const [error, setError] = useState('');
 
-  const totalCOP = getTotalCOP();
+  const subtotal = getSubtotal();
+  const shipping = subtotal === 0 || (settings.shipping.freeFrom > 0 && subtotal >= settings.shipping.freeFrom) ? 0 : settings.shipping.flatRate;
+  const total = subtotal + shipping;
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, [k]: e.target.value });
 
-  const handleWompiPayment = async (e: React.FormEvent) => {
+  const wompiAvailable = settings.payments.wompi && !!API_URL && settings.locale.currency === 'COP';
+  const waNumber = settings.contact.whatsapp.replace(/\D/g, '');
+  const waAvailable = settings.payments.whatsappOrders && !!waNumber;
+
+  const buildOrder = (method: OrderRecord['method']): OrderRecord => ({
+    id: crypto.randomUUID(),
+    reference: `${settings.payments.orderPrefix || 'PED'}-${Date.now()}`,
+    createdAt: Date.now(),
+    customer: form,
+    items,
+    subtotal,
+    shipping,
+    total,
+    method,
+    status: 'pendiente',
+  });
+
+  const payWompi = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
+    setError('');
+    setLoading('wompi');
     try {
-      const orderRef = `VENDOME-${Date.now()}`;
-      const amountInCents = totalCOP * 100;
-
-      // 1. Obtener la firma de integridad calculada por el backend NestJS
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const res = await fetch(`${apiUrl}/v1/payments/wompi/initiate`, {
+      const order = buildOrder('wompi');
+      const res = await fetch(`${API_URL}/v1/payments/wompi/initiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: orderRef,
-          amountInCents,
-          currency: 'COP',
-          customerEmail,
-        }),
+        body: JSON.stringify({ orderId: order.reference, amountInCents: Math.round(total * 100), currency: 'COP', customerEmail: form.email }),
       });
-
-      if (!res.ok) throw new Error('Error al conectar con el servidor de pagos');
-      const checkoutConfig = await res.json();
-
-      // 2. Invocar el Widget oficial de Wompi Colombia
-      // @ts-ignore
+      if (!res.ok) throw new Error('No se pudo conectar con el servidor de pagos');
+      const cfg = await res.json();
+      addOrder(order);
+      // @ts-ignore widget global de Wompi
       const checkout = new WidgetCheckout({
-        currency: checkoutConfig.currency,
-        amountInCents: checkoutConfig.amountInCents,
-        reference: checkoutConfig.reference,
-        publicKey: checkoutConfig.publicKey,
-        signature: { integrity: checkoutConfig.signatureHex },
-        redirectUrl: checkoutConfig.redirectUrl,
+        currency: cfg.currency,
+        amountInCents: cfg.amountInCents,
+        reference: cfg.reference,
+        publicKey: cfg.publicKey,
+        signature: { integrity: cfg.signatureHex },
+        redirectUrl: cfg.redirectUrl,
       });
-
-      checkout.open((result: any) => {
-        console.log('Resultado Wompi:', result);
-      });
+      checkout.open(() => {});
     } catch (err: any) {
-      alert('Error al iniciar Wompi: ' + err.message);
+      setError(err.message || 'Error al iniciar el pago');
     } finally {
-      setLoading(false);
+      setLoading('');
     }
   };
 
+  const orderWhatsapp = () => {
+    const f = document.getElementById('checkout-form') as HTMLFormElement;
+    if (!f.reportValidity()) return;
+    setLoading('whatsapp');
+    const order = buildOrder('whatsapp');
+    addOrder(order);
+    const lines = [
+      `*Nuevo pedido ${order.reference}*`,
+      ...items.map((i) => `• ${i.quantity} x ${i.title}${i.variantLabel ? ` (${i.variantLabel})` : ''} — ${formatMoney(i.price * i.quantity, settings)}`),
+      `Subtotal: ${formatMoney(subtotal, settings)}`,
+      `Envío: ${shipping ? formatMoney(shipping, settings) : 'Gratis'}`,
+      `*Total: ${formatMoney(total, settings)}*`,
+      '',
+      `Cliente: ${form.name}`,
+      `Email: ${form.email}`,
+      `Teléfono: ${form.phone}`,
+      `Dirección: ${form.address}, ${form.city}`,
+      form.notes && `Notas: ${form.notes}`,
+    ].filter(Boolean);
+    window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
+    clearCart();
+    router.push(`/checkout/confirmation?ref=${order.reference}&via=whatsapp`);
+  };
+
+  if (items.length === 0) {
+    return (
+      <div className="max-w-xl mx-auto py-32 text-center space-y-4">
+        <h1 className="font-display text-4xl">Tu carrito está vacío</h1>
+        <Link href="/tienda" className="btn-primary">Ir a la tienda</Link>
+      </div>
+    );
+  }
+
   return (
     <>
-      <Script src="https://checkout.wompi.co/widget.js" strategy="lazyOnload" />
-
-      <div className="min-h-screen bg-[#08080a] text-neutral-100 px-6 py-12 max-w-4xl mx-auto">
-        <Link href="/" className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-neutral-400 hover:text-white mb-8">
-          <ArrowLeft className="w-4 h-4" /> Revenir à l'Atelier
+      {wompiAvailable && <Script src="https://checkout.wompi.co/widget.js" strategy="lazyOnload" />}
+      <div className="max-w-6xl mx-auto px-5 md:px-8 py-12">
+        <Link href="/tienda" className="inline-flex items-center gap-2 text-[11px] uppercase tracking-widest text-muted hover:text-accent mb-8">
+          <ArrowLeft className="w-4 h-4" /> Seguir comprando
         </Link>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          {/* Formulario */}
-          <div>
-            <div className="border-b border-[#212128] pb-4 mb-6">
-              <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-[#c5a880]">Paiement Sécurisé</span>
-              <h1 className="font-serif text-3xl text-white mt-1">Finaliser Votre Commande</h1>
-              <p className="text-xs text-neutral-400 mt-2">Medios aceptados en Colombia: PSE, Nequi, Bancolombia y Tarjetas.</p>
+        <div className="grid md:grid-cols-5 gap-12">
+          <form id="checkout-form" onSubmit={payWompi} className="md:col-span-3 space-y-5">
+            <div className="border-b border-line pb-4">
+              <span className="eyebrow">Pago seguro</span>
+              <h1 className="font-display text-4xl mt-1">Finalizar compra</h1>
             </div>
 
-            <form onSubmit={handleWompiPayment} className="space-y-4">
-              <div>
-                <label className="block text-[11px] uppercase tracking-wider text-neutral-300 mb-1">
-                  Nom Complet
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Jean-Luc Picard"
-                  className="w-full bg-[#121217] border border-[#2b2b36] px-4 py-3 text-sm text-white focus:outline-none focus:border-[#c5a880]"
-                />
-              </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div><label className="label">Nombre completo</label><input required className="input" value={form.name} onChange={set('name')} /></div>
+              <div><label className="label">Correo electrónico</label><input required type="email" className="input" value={form.email} onChange={set('email')} /></div>
+              <div><label className="label">Teléfono / WhatsApp</label><input required className="input" value={form.phone} onChange={set('phone')} /></div>
+              <div><label className="label">Ciudad</label><input required className="input" value={form.city} onChange={set('city')} /></div>
+            </div>
+            <div><label className="label">Dirección de entrega</label><input required className="input" value={form.address} onChange={set('address')} /></div>
+            <div><label className="label">Notas del pedido (opcional)</label><textarea rows={3} className="input" value={form.notes} onChange={set('notes')} /></div>
 
-              <div>
-                <label className="block text-[11px] uppercase tracking-wider text-neutral-300 mb-1">
-                  Adresse Courriel (Email)
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={customerEmail}
-                  onChange={(e) => setCustomerEmail(e.target.value)}
-                  placeholder="client@vendome.com"
-                  className="w-full bg-[#121217] border border-[#2b2b36] px-4 py-3 text-sm text-white focus:outline-none focus:border-[#c5a880]"
-                />
-              </div>
+            {error && <p className="text-sm text-red-400 border border-red-400/30 p-3">{error}</p>}
 
-              <div className="pt-4">
-                <button
-                  type="submit"
-                  disabled={loading || items.length === 0}
-                  className="w-full py-4 bg-[#c5a880] hover:bg-[#d6ba94] text-black font-bold text-xs uppercase tracking-[0.25em] flex items-center justify-center gap-2 transition-all shadow-xl"
-                >
-                  <Lock className="w-4 h-4" />
-                  {loading ? 'Connexion en cours...' : `Payer $${totalCOP.toLocaleString('es-CO')} COP via Wompi`}
+            <div className="space-y-3 pt-2">
+              {wompiAvailable && (
+                <button type="submit" disabled={!!loading} className="btn-primary w-full">
+                  <Lock className="w-4 h-4" /> {loading === 'wompi' ? 'Conectando…' : `Pagar ${formatMoney(total, settings)} con Wompi`}
                 </button>
-              </div>
+              )}
+              {waAvailable && (
+                <button type="button" onClick={orderWhatsapp} disabled={!!loading} className={wompiAvailable ? 'btn-outline w-full' : 'btn-primary w-full'}>
+                  <MessageCircle className="w-4 h-4" /> Hacer pedido por WhatsApp
+                </button>
+              )}
+              {!wompiAvailable && !waAvailable && (
+                <p className="text-sm text-muted">Configura un método de pago en Admin → Tienda → Pagos.</p>
+              )}
+              {wompiAvailable && <p className="text-[11px] text-muted text-center">Aceptamos tarjetas, PSE, Nequi y Bancolombia.</p>}
+            </div>
+          </form>
 
-              <div className="flex items-center gap-2 text-[11px] text-neutral-500 justify-center pt-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                <span>Chiffrement SSL 256-bit • Signature d'Intégrité SHA-256</span>
-              </div>
-            </form>
-          </div>
-
-          {/* Resumen del Pedido */}
-          <div className="bg-[#0f0f14] border border-[#212128] p-6 h-fit">
-            <h3 className="font-serif text-lg text-white mb-4">Récapitulatif de Commande</h3>
-            <div className="space-y-3 border-b border-[#212128] pb-4 mb-4">
+          <aside className="md:col-span-2 border border-line bg-surface/50 p-6 h-fit space-y-5">
+            <h2 className="font-display text-2xl">Resumen</h2>
+            <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
               {items.map((i) => (
-                <div key={i.id} className="flex justify-between text-xs">
-                  <span className="text-neutral-300">{i.title} × {i.quantity}</span>
-                  <span className="font-mono text-neutral-400">${(i.priceCOP * i.quantity).toLocaleString('es-CO')}</span>
+                <div key={i.id} className="flex gap-3">
+                  <Media src={i.image} art={i.art} alt={i.title} className="w-16 h-16 shrink-0 border border-line" />
+                  <div className="flex-1 text-sm">
+                    <p className="font-display text-base leading-tight">{i.title}</p>
+                    {i.variantLabel && <p className="text-[11px] text-muted">{i.variantLabel}</p>}
+                    <p className="text-xs text-muted mt-1">{i.quantity} × {formatMoney(i.price, settings)}</p>
+                  </div>
                 </div>
               ))}
             </div>
-
-            <div className="flex justify-between items-baseline text-sm font-mono pt-2">
-              <span className="text-neutral-400 uppercase">Total à Payer:</span>
-              <span className="font-serif text-2xl text-[#e5c28e] font-bold">
-                ${totalCOP.toLocaleString('es-CO')} COP
-              </span>
-            </div>
-          </div>
+            <dl className="border-t border-line pt-4 space-y-2 text-sm">
+              <div className="flex justify-between"><dt className="text-muted">Subtotal</dt><dd>{formatMoney(subtotal, settings)}</dd></div>
+              <div className="flex justify-between"><dt className="text-muted">Envío</dt><dd>{shipping ? formatMoney(shipping, settings) : 'Gratis'}</dd></div>
+              <div className="flex justify-between text-lg pt-2 border-t border-line"><dt>Total</dt><dd className="font-display text-2xl text-accent">{formatMoney(total, settings)}</dd></div>
+            </dl>
+          </aside>
         </div>
       </div>
     </>

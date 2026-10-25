@@ -4,7 +4,7 @@ import { prisma } from '@vendome/database';
 @Injectable()
 export class OrdersService {
   async create(data: { customerEmail: string; fullName?: string; items: any[]; totalAmountCOP: number }) {
-    const reference = `VENDOME-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const reference = `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
     // Obtener o crear cliente
     let customer = await prisma.customer.findUnique({
@@ -15,7 +15,7 @@ export class OrdersService {
       customer = await prisma.customer.create({
         data: {
           email: data.customerEmail,
-          fullName: data.fullName || 'Client Haute Joaillerie',
+          fullName: data.fullName || 'Cliente',
         },
       });
     }
@@ -51,3 +51,4 @@ export class OrdersService {
     return order;
   }
 }
+

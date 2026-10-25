@@ -1,125 +1,180 @@
 'use client';
-import React from 'react';
+import React, { Suspense, useMemo } from 'react';
 import Link from 'next/link';
-import { useCartStore } from '@/store/useCartStore';
-import { ShoppingBag, Sparkles, Shield, Gem, Compass } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { ArrowRight, ShieldCheck, Truck, Award, Sparkles } from 'lucide-react';
+import { useStoreData } from '@/store/useStoreData';
+import { Media } from '@/components/ui/Media';
+import { ProductCard } from '@/components/ui/ProductCard';
+
+const JewelryCanvas = dynamic(() => import('@/components/3d/JewelryCanvas'), {
+  ssr: false,
+  loading: () => <div className="w-full h-full animate-pulse bg-surface/60" />,
+});
+
+const ICONS = [Award, Truck, ShieldCheck, Sparkles];
 
 export default function HomePage() {
-  const { openCart, items } = useCartStore();
-  const totalItems = items.reduce((acc, i) => acc + i.quantity, 0);
+  const { settings, categories, products } = useStoreData();
+  const { hero, sections, customizer } = settings;
+  const active = useMemo(() => products.filter((p) => p.active), [products]);
+  const featured = useMemo(() => {
+    const f = active.filter((p) => p.featured);
+    return (f.length ? f : active).slice(0, 8);
+  }, [active]);
+  const newest = useMemo(() => [...active].sort((a, b) => b.createdAt - a.createdAt).slice(0, 4), [active]);
+  const show3D = hero.show3D && customizer.enabled && !hero.imageUrl;
 
   return (
-    <div className="relative min-h-screen bg-[#08080a] text-[#f4efe6]">
-      {/* Barra de Navegación Editorial */}
-      <header className="sticky top-0 z-40 bg-[#08080a]/80 backdrop-blur-md border-b border-[#212128] px-8 py-5 flex items-center justify-between">
-        <div className="flex items-center space-x-6">
-          <Link href="/" className="group flex flex-col">
-            <span className="font-serif text-xl tracking-[0.25em] font-medium text-white group-hover:text-[#c5a880] transition-colors">
-              ATELIER VENDÔME
-            </span>
-            <span className="text-[9px] uppercase tracking-[0.4em] text-neutral-500 font-mono">
-              Place Vendôme • Paris & Bogotá
-            </span>
-          </Link>
-        </div>
-
-        <nav className="hidden md:flex items-center space-x-8 text-xs uppercase tracking-[0.2em] text-neutral-300">
-          <Link href="/customizer" className="hover:text-[#c5a880] transition-colors flex items-center gap-1.5 text-[#c5a880]">
-            <Sparkles className="w-3.5 h-3.5" />
-            Atelier 3D Sur-Mesure
-          </Link>
-          <Link href="#collections" className="hover:text-white transition-colors">
-            Collections
-          </Link>
-          <Link href="#haute-couture" className="hover:text-white transition-colors">
-            Savoir-Faire
-          </Link>
-        </nav>
-
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={openCart}
-            className="relative p-2.5 bg-[#141418] border border-[#2b2b35] hover:border-[#c5a880] text-neutral-200 transition-all rounded-none"
-            aria-label="Abrir carrito"
-          >
-            <ShoppingBag className="w-4 h-4" />
-            {totalItems > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 bg-[#c5a880] text-black text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
-                {totalItems}
-              </span>
+    <div>
+      {/* HERO */}
+      <section className="relative overflow-hidden border-b border-line">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_40%,rgb(var(--accent)/0.14),transparent_60%)]" />
+        <div className="relative max-w-7xl mx-auto px-5 md:px-8 py-16 md:py-24 grid md:grid-cols-2 gap-10 items-center min-h-[560px]">
+          <div className="space-y-6 fade-up">
+            {hero.eyebrow && <span className="eyebrow">{hero.eyebrow}</span>}
+            <h1 className="font-display text-5xl md:text-7xl leading-[1.02] font-medium">{hero.title}</h1>
+            <p className="text-muted text-base md:text-lg max-w-lg leading-relaxed">{hero.subtitle}</p>
+            <div className="flex flex-wrap gap-4 pt-2">
+              {hero.ctaLabel && (
+                <Link href={hero.ctaHref || '/tienda'} className="btn-primary">
+                  {hero.ctaLabel} <ArrowRight className="w-4 h-4" />
+                </Link>
+              )}
+              {hero.secondaryLabel && (
+                <Link href={hero.secondaryHref || '/tienda'} className="btn-outline">
+                  {hero.secondaryLabel}
+                </Link>
+              )}
+            </div>
+          </div>
+          <div className="relative h-[380px] md:h-[500px]">
+            {hero.imageUrl ? (
+              <Media src={hero.imageUrl} art={{ kind: 'box', color: '#888' }} alt={hero.title} className="w-full h-full" />
+            ) : show3D ? (
+              <Suspense fallback={null}>
+                <JewelryCanvas
+                  metalColor={customizer.metals[0]?.color ?? '#ffd24a'}
+                  gemColor={customizer.gems[0]?.color ?? '#ffffff'}
+                  carats={1.5}
+                />
+              </Suspense>
+            ) : (
+              <Media src="" art={featured[0]?.art ?? { kind: 'box', color: '#c5a880' }} alt="" className="w-full h-full border border-line" />
             )}
-          </button>
-        </div>
-      </header>
-
-      {/* Hero Section Cinematográfica */}
-      <main className="relative px-8 md:px-16 py-20 flex flex-col items-center text-center max-w-5xl mx-auto">
-        <div className="inline-flex items-center gap-2 border border-[#302a20] bg-[#16130e] px-4 py-1.5 mb-8">
-          <Gem className="w-3.5 h-3.5 text-[#c5a880]" />
-          <span className="text-[10px] uppercase tracking-[0.3em] text-[#c5a880] font-mono">
-            Haute Joaillerie Contemporaine
-          </span>
-        </div>
-
-        <h1 className="font-serif text-5xl md:text-7xl font-light tracking-tight leading-[1.1] mb-8">
-          L'Élégance Pure, <br />
-          <span className="italic font-serif text-[#e5c28e]">Façonnée en 3D Temps Réel.</span>
-        </h1>
-
-        <p className="text-neutral-400 max-w-2xl text-sm md:text-base leading-relaxed font-light mb-12">
-          Experimenta la unión entre el clasicismo centenario de la Place Vendôme y el vanguardismo
-          digital. Modela tu solitario imperial, previsualiza gemas y oro en tiempo real y finaliza
-          tu pedido con pasarela segura para Colombia.
-        </p>
-
-        <div className="flex flex-col sm:flex-row gap-5">
-          <Link
-            href="/customizer"
-            className="px-10 py-4 bg-[#c5a880] hover:bg-[#d6ba94] text-black font-semibold text-xs tracking-[0.25em] uppercase transition-all shadow-xl shadow-[#c5a880]/10"
-          >
-            Entrar al Configurador 3D
-          </Link>
-          <Link
-            href="#collections"
-            className="px-8 py-4 border border-[#33333f] hover:border-[#c5a880] text-neutral-300 hover:text-white text-xs tracking-[0.25em] uppercase transition-colors"
-          >
-            Ver Colección Prêt-à-Porter
-          </Link>
-        </div>
-
-        {/* Pilares de Marca y Seguridad */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-28 w-full text-left border-t border-[#1e1e26] pt-12">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-[#c5a880]">
-              <Compass className="w-4 h-4" />
-              <h3 className="font-serif text-sm uppercase tracking-wider text-white">Visualización Háptica 3D</h3>
-            </div>
-            <p className="text-xs text-neutral-400 font-light leading-relaxed">
-              Pasa el cursor sobre diamantes, esmeraldas de Muzo y platino para ver la dispersión de luz en vivo sin tiempos de carga.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-[#c5a880]">
-              <Shield className="w-4 h-4" />
-              <h3 className="font-serif text-sm uppercase tracking-wider text-white">Seguridad & Wompi Colombia</h3>
-            </div>
-            <p className="text-xs text-neutral-400 font-light leading-relaxed">
-              Pagos con PSE, Nequi y tarjetas verificados mediante SHA-256 integrity checks y protección contra Prototype Pollution.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-[#c5a880]">
-              <Gem className="w-4 h-4" />
-              <h3 className="font-serif text-sm uppercase tracking-wider text-white">Gemas Certificadas GIA</h3>
-            </div>
-            <p className="text-xs text-neutral-400 font-light leading-relaxed">
-              Cada creación incluye certificado gemológico internacional y estuche de cuero grabado a mano.
-            </p>
+            {show3D && (
+              <span className="absolute bottom-0 right-0 text-[10px] uppercase tracking-[0.3em] text-muted">Arrastra para girar</span>
+            )}
           </div>
         </div>
-      </main>
+      </section>
+
+      {/* CATEGORÍAS */}
+      {categories.length > 0 && (
+        <section className="max-w-7xl mx-auto px-5 md:px-8 pt-20">
+          <h2 className="font-display text-4xl text-center mb-10">{sections.categoriesTitle}</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            {categories.map((c) => (
+              <Link key={c.id} href={`/tienda?cat=${c.slug}`} className="group relative aspect-[4/5] border border-line hover:border-accent transition overflow-hidden">
+                <Media src={c.image} art={c.art} alt={c.name} className="absolute inset-0 transition-transform duration-700 group-hover:scale-105" />
+                <div className="absolute inset-0 bg-gradient-to-t from-bg/90 via-transparent to-transparent" />
+                <div className="absolute bottom-0 p-5">
+                  <h3 className="font-display text-2xl">{c.name}</h3>
+                  <span className="text-[11px] uppercase tracking-[0.2em] text-accent inline-flex items-center gap-1.5 mt-1">
+                    Ver todo <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition" />
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* DESTACADOS */}
+      <section className="max-w-7xl mx-auto px-5 md:px-8 pt-24">
+        <div className="text-center mb-12 space-y-2">
+          <h2 className="font-display text-4xl">{sections.featuredTitle}</h2>
+          <p className="text-muted text-sm">{sections.featuredSubtitle}</p>
+        </div>
+        {featured.length === 0 ? (
+          <p className="text-center text-muted">Aún no hay productos. Agrégalos desde <Link href="/admin" className="text-accent underline">/admin</Link>.</p>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 md:gap-x-6 gap-y-10">
+            {featured.map((p) => <ProductCard key={p.id} product={p} />)}
+          </div>
+        )}
+        <div className="text-center mt-12">
+          <Link href="/tienda" className="btn-outline">Ver todos los productos</Link>
+        </div>
+      </section>
+
+      {/* PERSONALIZADOR */}
+      {customizer.enabled && (
+        <section className="max-w-7xl mx-auto px-5 md:px-8 pt-24">
+          <div className="border border-line bg-surface/50 grid md:grid-cols-2 items-center overflow-hidden">
+            <div className="p-10 md:p-16 space-y-5">
+              <span className="eyebrow">{customizer.subtitle}</span>
+              <h2 className="font-display text-4xl md:text-5xl leading-tight">{customizer.title}</h2>
+              <p className="text-muted leading-relaxed">
+                Elige el metal, la piedra y los quilates. Mira tu pieza en 3D en tiempo real y conoce el precio al instante.
+              </p>
+              <Link href="/personalizador" className="btn-primary">Empezar a diseñar <ArrowRight className="w-4 h-4" /></Link>
+            </div>
+            <div className="h-72 md:h-[420px] bg-gradient-to-br from-black/30 to-transparent">
+              <Suspense fallback={null}>
+                <JewelryCanvas metalColor={customizer.metals[1]?.color ?? '#e8a598'} gemColor={customizer.gems[1]?.color ?? '#12c45a'} carats={1.2} interactive={false} />
+              </Suspense>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* NOVEDADES */}
+      {newest.length > 0 && active.length > 4 && (
+        <section className="max-w-7xl mx-auto px-5 md:px-8 pt-24">
+          <h2 className="font-display text-4xl text-center mb-12">Novedades</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 md:gap-x-6 gap-y-10">
+            {newest.map((p) => <ProductCard key={p.id} product={p} />)}
+          </div>
+        </section>
+      )}
+
+      {/* BENEFICIOS */}
+      <section className="max-w-7xl mx-auto px-5 md:px-8 pt-24">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 border-y border-line py-12">
+          {sections.benefits.map((b, i) => {
+            const Icon = ICONS[i % ICONS.length];
+            return (
+              <div key={i} className="text-center space-y-3">
+                <Icon className="w-6 h-6 mx-auto text-accent" />
+                <h4 className="font-display text-xl">{b.title}</h4>
+                <p className="text-xs text-muted leading-relaxed">{b.text}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* NEWSLETTER */}
+      <Newsletter title={sections.newsletterTitle} text={sections.newsletterText} />
     </div>
+  );
+}
+
+function Newsletter({ title, text }: { title: string; text: string }) {
+  const [done, setDone] = React.useState(false);
+  return (
+    <section className="max-w-2xl mx-auto px-5 pt-24 text-center space-y-4">
+      <h2 className="font-display text-4xl">{title}</h2>
+      <p className="text-muted text-sm">{text}</p>
+      {done ? (
+        <p className="text-accent text-sm pt-2">¡Gracias por suscribirte!</p>
+      ) : (
+        <form onSubmit={(e) => { e.preventDefault(); setDone(true); }} className="flex gap-2 pt-2">
+          <input type="email" required placeholder="tu@correo.com" className="input" />
+          <button className="btn-primary shrink-0">Suscribirme</button>
+        </form>
+      )}
+    </section>
   );
 }

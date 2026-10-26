@@ -46,13 +46,13 @@ body {
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink text-bg px-8 py-4 text-[11px] font-medium uppercase tracking-[0.18em] transition duration-300 hover:bg-accent hover:text-on-accent disabled:opacity-40 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink text-bg px-6 sm:px-8 py-3.5 sm:py-4 text-[11px] font-medium uppercase tracking-[0.18em] transition duration-300 hover:bg-accent hover:text-on-accent active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none select-none min-h-[44px];
   }
   .btn-outline {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-ink/25 text-ink px-8 py-4 text-[11px] font-medium uppercase tracking-[0.18em] transition duration-300 hover:bg-ink hover:text-bg hover:border-ink;
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-ink/25 text-ink px-6 sm:px-8 py-3.5 sm:py-4 text-[11px] font-medium uppercase tracking-[0.18em] transition duration-300 hover:bg-ink hover:text-bg hover:border-ink active:scale-[0.98] select-none min-h-[44px];
   }
   .input {
-    @apply w-full bg-surface border border-line rounded-xl px-4 py-3 text-sm text-ink placeholder:text-muted/60 focus:outline-none focus:border-accent transition;
+    @apply w-full bg-surface border border-line rounded-xl px-4 py-3 text-sm text-ink placeholder:text-muted/60 focus:outline-none focus:border-accent transition min-h-[44px];
   }
   .label {
     @apply block text-[11px] uppercase tracking-wider text-muted mb-1.5;
@@ -60,6 +60,16 @@ body {
   .eyebrow {
     @apply text-[11px] uppercase tracking-[0.35em] text-accent font-medium;
   }
+}
+
+/* Ocultar scrollbar pero mantener scroll funcional */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 @keyframes fadeUp {

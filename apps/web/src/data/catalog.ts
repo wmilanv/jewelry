@@ -11,7 +11,7 @@
  */
 import type { CatalogData, Category, Product, StoreSettings } from '@/types';
 
-export const CATALOG_VERSION = 5;
+export const CATALOG_VERSION = 6;
 
 const t = new Date('2026-01-01').getTime();
 
@@ -46,11 +46,11 @@ const METALS = [
 
 const jewelrySettings: StoreSettings = {
   brand: {
-    name: 'MIRA',
-    tagline: 'Maison de Haute Joaillerie · Bogotá',
+    name: 'ATELIER VENDÔME',
+    tagline: 'Haute Joaillerie & Bespoke 3D · Bogotá',
     logoUrl: '',
     description:
-      'Joyas arquitectónicas creadas a mano en oro 18k reciclado, diamantes certificados GIA y esmeraldas colombianas de origen ético. Siluetas atemporales concebidas para trascender generaciones.',
+      'Maison de alta joyería concebida en oro 18k reciclado, esmeraldas colombianas de Muzo y diamantes certificados GIA. Siluetas de autor creadas para trascender generaciones.',
   },
   theme: { mode: 'dark', accent: '#c5a880', fontStyle: 'serif' },
   locale: { currency: 'COP', locale: 'es-CO' },

@@ -54,42 +54,42 @@ export function ProductCard({ product }: { product: Product }) {
           </div>
         )}
 
-        <div className="absolute top-3.5 left-3.5 flex flex-col gap-1.5 items-start z-10">
+        <div className="absolute top-2.5 sm:top-3.5 left-2.5 sm:left-3.5 flex flex-col gap-1 items-start z-10 pointer-events-none">
           {sold && (
-            <span className="bg-ink text-bg text-[10px] uppercase tracking-widest px-3 py-1 rounded-full font-medium shadow-md">
+            <span className="bg-ink text-bg text-[8px] sm:text-[10px] uppercase tracking-widest px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full font-medium shadow-md">
               Agotado
             </span>
           )}
           {!sold && product.badge && (
-            <span className="bg-bg/85 backdrop-blur text-ink text-[10px] uppercase tracking-widest px-3 py-1 rounded-full border border-line shadow-sm">
+            <span className="bg-bg/85 backdrop-blur text-ink text-[8px] sm:text-[10px] uppercase tracking-widest px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full border border-line shadow-sm">
               {product.badge}
             </span>
           )}
           {discount > 0 && !sold && (
-            <span className="bg-accent text-on-accent text-[10px] font-semibold tracking-widest px-3 py-1 rounded-full shadow-sm">
+            <span className="bg-accent text-on-accent text-[8px] sm:text-[10px] font-semibold tracking-widest px-2 sm:px-3 py-0.5 sm:py-1 rounded-full shadow-sm">
               -{discount}%
             </span>
           )}
         </div>
 
-        <span className="absolute bottom-3.5 left-3.5 right-3.5 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition duration-500 bg-bg/90 backdrop-blur-md rounded-full text-center text-[10px] uppercase tracking-[0.22em] py-3 border border-white/10 z-10 font-medium">
+        <span className="absolute bottom-3.5 left-3.5 right-3.5 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition duration-500 bg-bg/90 backdrop-blur-md rounded-full text-center text-[10px] uppercase tracking-[0.22em] py-3 border border-white/10 z-10 font-medium hidden sm:block">
           Descubrir pieza
         </span>
       </div>
 
-      <div className="pt-4 space-y-1">
-        <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.25em] text-muted font-medium">
-          <span>{category?.name || 'Alta Joyería'}</span>
-          <span>{product.sku}</span>
+      <div className="pt-3 sm:pt-4 space-y-1 sm:space-y-1.5">
+        <div className="flex items-center justify-between text-[9px] sm:text-[10px] uppercase tracking-[0.18em] sm:tracking-[0.25em] text-muted font-medium">
+          <span className="truncate max-w-[65%]">{category?.name || 'Alta Joyería'}</span>
+          <span className="shrink-0">{product.sku}</span>
         </div>
-        <div className="flex items-baseline justify-between gap-3">
-          <h3 className="font-display text-xl uppercase leading-tight tracking-wide text-ink group-hover:text-accent transition-colors truncate">
+        <div className="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-3">
+          <h3 className="font-display text-base sm:text-xl uppercase leading-tight tracking-wide text-ink group-hover:text-accent transition-colors line-clamp-1">
             {product.name}
           </h3>
-          <div className="text-right text-sm shrink-0">
+          <div className="sm:text-right text-xs sm:text-sm shrink-0 flex items-baseline gap-1.5 sm:block">
             <span className="font-medium text-accent">{formatMoney(product.price, settings)}</span>
             {discount > 0 && (
-              <span className="block text-muted line-through text-xs">
+              <span className="text-muted line-through text-[10px] sm:text-xs">
                 {formatMoney(product.compareAtPrice, settings)}
               </span>
             )}

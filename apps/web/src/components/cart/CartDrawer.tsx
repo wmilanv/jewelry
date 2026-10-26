@@ -21,7 +21,7 @@ export function CartDrawer() {
         className={`fixed inset-0 z-50 bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       />
       <aside
-        className={`fixed top-0 right-0 z-50 h-full w-full max-w-md bg-bg border-l border-line flex flex-col transition-transform duration-300 shadow-2xl ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed top-0 right-0 z-50 h-[100dvh] max-h-[100dvh] w-full max-w-md bg-bg border-l border-line flex flex-col transition-transform duration-300 shadow-2xl ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         <div className="flex items-center justify-between px-6 py-5 border-b border-line">
           <div>
@@ -134,7 +134,7 @@ export function CartDrawer() {
         </div>
 
         {items.length > 0 && (
-          <div className="border-t border-line p-6 space-y-4 bg-surface/20">
+          <div className="border-t border-line p-5 sm:p-6 space-y-3 sm:space-y-4 bg-surface/20 pb-[max(1.25rem,env(safe-area-inset-bottom))] shrink-0">
             <div className="flex justify-between items-baseline">
               <span className="text-xs uppercase tracking-wider text-muted">Subtotal</span>
               <span className="font-display text-2xl text-accent">{formatMoney(subtotal, settings)}</span>

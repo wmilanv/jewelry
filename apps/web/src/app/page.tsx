@@ -199,7 +199,7 @@ export default function HomePage() {
     if (!introDone) return;
     const ctx = gsap.context(() => {
       gsap.from('[data-hero-fade]', { opacity: 0, y: 24, duration: 1.1, stagger: 0.12, ease: 'power3.out', delay: 0.4 });
-      gsap.from(bottomRef.current, { y: 60, opacity: 0, duration: 1.2, ease: 'power3.out', delay: 0.6 });
+      if (bottomRef.current) gsap.from(bottomRef.current, { y: 24, opacity: 0, duration: 1.1, ease: 'power3.out', delay: 0.6 });
       gsap.to(bgRef.current, {
         yPercent: 10,
         scale: 1.06,
@@ -254,25 +254,75 @@ export default function HomePage() {
     <div>
       <Preloader onDone={() => setIntroDone(true)} />
 
-      {/* ======================= 1. HERO ENMARCADO DE LUJO ======================= */}
-      <section className="px-3 md:px-5">
+      {/* ======================= 1. HERO DE ALTA JOYERÍA ======================= */}
+      <section className="px-3 md:px-6">
         <div
           ref={heroRef}
-          className="relative rounded-[2.2rem] overflow-hidden bg-[#08080b] text-[#f4efe6] min-h-[calc(100vh-6.5rem)] flex flex-col border border-white/10 shadow-2xl"
+          className="relative rounded-[2rem] sm:rounded-[2.4rem] overflow-hidden bg-[#08080b] text-[#f4efe6] min-h-[calc(100dvh-6.5rem)] flex flex-col justify-between border border-white/10 shadow-2xl p-5 sm:p-7 lg:p-8 xl:p-10"
         >
-          {/* Marco editorial interior estilo revista francesa */}
-          <div className="pointer-events-none absolute inset-4 md:inset-6 rounded-[1.6rem] border border-white/[0.07] z-10" />
+          {/* Marco editorial interior sutil */}
+          <div className="pointer-events-none absolute inset-3 sm:inset-5 rounded-[1.6rem] border border-white/[0.06] z-10" />
 
-          {/* Fondo atmosférico + Escena 3D interactiva */}
-          <div ref={bgRef} className="absolute inset-0">
+          {/* Fondo atmosférico de luz */}
+          <div ref={bgRef} className="absolute inset-0 pointer-events-none">
             {hero.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={hero.imageUrl} alt="" className="w-full h-full object-cover opacity-80" />
             ) : (
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_45%,rgb(var(--accent)/0.24),transparent_58%),radial-gradient(ellipse_at_20%_90%,rgba(255,255,255,0.06),transparent_50%)]" />
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_45%,rgb(var(--accent)/0.22),transparent_60%),radial-gradient(ellipse_at_20%_80%,rgba(255,255,255,0.04),transparent_50%)]" />
             )}
-            {show3D && introDone && (
-              <div className="absolute inset-y-0 right-0 w-full lg:w-[66%]">
+          </div>
+
+          {/* Cabecera del Hero: Eyebrow + Garantías */}
+          <div className="relative z-20 flex flex-wrap items-center justify-between gap-4 text-[9px] sm:text-[10px] uppercase tracking-[0.26em] text-white/55 border-b border-white/10 pb-3 sm:pb-4">
+            <span data-hero-fade>{hero.eyebrow || 'HAUTE JOAILLERIE · PLACE VENDÔME & BOGOTÁ'}</span>
+            <div data-hero-fade className="hidden sm:flex items-center gap-2 text-accent">
+              <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+              <span>Oro 18K Ético · Diamantes GIA · Esmeraldas de Muzo</span>
+            </div>
+          </div>
+
+          {/* Cuerpo principal: Split Grid 2 Columnas (Texto Izquierda / Joya 3D Derecha) */}
+          <div className="relative z-20 grid lg:grid-cols-12 gap-6 lg:gap-8 items-center py-3 sm:py-5 lg:py-6 my-auto">
+            {/* Columna Izquierda: Titular monumental + Texto + Acciones */}
+            <div className="lg:col-span-6 space-y-4 sm:space-y-5">
+              <div data-hero-title>
+                {introDone ? (
+                  <SplitTitle
+                    text={hero.title}
+                    trigger="now"
+                    delay={0.15}
+                    className="font-display uppercase leading-[0.95] tracking-[0.02em] text-[clamp(2.1rem,4vw,4.2rem)]"
+                  />
+                ) : (
+                  <h1 className="font-display uppercase leading-[0.95] text-[clamp(2.1rem,4vw,4.2rem)] opacity-0">
+                    {hero.title}
+                  </h1>
+                )}
+              </div>
+
+              <p data-hero-fade className="text-xs sm:text-sm text-white/70 leading-relaxed max-w-lg">
+                {hero.subtitle}
+              </p>
+
+              <div data-hero-fade className="flex flex-wrap items-center gap-3 sm:gap-4 pt-1 sm:pt-2">
+                {hero.secondaryLabel && (
+                  <PillCta href={hero.secondaryHref || '/personalizador'} label={hero.secondaryLabel} />
+                )}
+                {hero.ctaLabel && (
+                  <Link
+                    href={hero.ctaHref || '/tienda'}
+                    className="rounded-full border border-white/20 hover:border-white px-5 sm:px-6 h-12 sm:h-13 inline-flex items-center text-[10px] sm:text-[11px] uppercase tracking-[0.2em] text-white/80 hover:text-white transition"
+                  >
+                    {hero.ctaLabel}
+                  </Link>
+                )}
+              </div>
+            </div>
+
+            {/* Columna Derecha: Escenario 3D interactivo completamente despejado */}
+            {show3D && (
+              <div className="lg:col-span-6 relative h-[280px] sm:h-[350px] lg:h-[400px] xl:h-[440px] rounded-[2rem] overflow-hidden border border-white/10 bg-black/40 shadow-2xl">
                 <Suspense fallback={null}>
                   <JewelryCanvas
                     metalColor={heroSil.metalColor}
@@ -283,81 +333,45 @@ export default function HomePage() {
                     bandStyle={heroSil.band}
                   />
                 </Suspense>
+
+                {/* Selector superior discreto de siluetas */}
+                <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-center justify-between gap-2 text-[9px] uppercase tracking-[0.18em] text-white/60 pointer-events-none">
+                  <span className="bg-black/60 backdrop-blur-md px-2.5 sm:px-3 py-1 rounded-full border border-white/10 pointer-events-auto shrink-0">
+                    {heroSil.code}
+                  </span>
+                  <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 p-1 overflow-x-auto no-scrollbar shrink-0 max-w-[calc(100%-110px)]">
+                    {BESPOKE_SILHOUETTES.slice(0, 4).map((s, idx) => (
+                      <button
+                        key={s.id}
+                        onClick={() => setHeroSilIdx(idx)}
+                        className={`px-2 sm:px-2.5 py-0.5 rounded-full text-[8.5px] sm:text-[9px] tracking-[0.12em] whitespace-nowrap transition ${
+                          heroSilIdx === idx ? 'bg-accent text-on-accent font-semibold' : 'text-white/60 hover:text-white'
+                        }`}
+                      >
+                        {s.name.split(' ')[0]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Subtítulo inferior elegante */}
+                <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4 flex items-center justify-between text-[9px] sm:text-[10px] uppercase tracking-[0.22em] text-white/70 pointer-events-none bg-black/60 backdrop-blur-md px-3.5 sm:px-4 py-2 rounded-xl border border-white/10">
+                  <span className="text-white font-medium">{heroSil.name}</span>
+                  <span className="text-accent text-[8.5px] sm:text-[9px]">Girar en 360°</span>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Cabecera técnica dentro del Hero (Coordenadas + Selector rápido de silueta 3D) */}
-          <div className="relative z-20 flex flex-wrap items-center justify-between gap-4 px-8 md:px-14 pt-8 md:pt-11 text-[10px] uppercase tracking-[0.3em] text-white/55">
-            <span data-hero-fade>{hero.eyebrow || 'HAUTE JOAILLERIE · ARCHIVE 2026'}</span>
-            {show3D && (
-              <div data-hero-fade className="flex flex-wrap items-center gap-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/15 p-1">
-                {BESPOKE_SILHOUETTES.slice(0, 4).map((s, idx) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setHeroSilIdx(idx)}
-                    className={`px-3 py-1 rounded-full text-[9px] tracking-[0.2em] transition ${
-                      heroSilIdx === idx ? 'bg-accent text-on-accent font-semibold' : 'text-white/65 hover:text-white'
-                    }`}
-                  >
-                    {s.name.split(' ')[0]}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Titular monumental */}
-          <div className="relative z-10 flex-1 flex flex-col justify-center px-8 md:px-14 py-10 pointer-events-none">
-            <div data-hero-title>
-              {introDone ? (
-                <SplitTitle
-                  text={hero.title}
-                  trigger="now"
-                  delay={0.15}
-                  className="font-display uppercase leading-[0.9] tracking-[0.02em] text-[clamp(2.8rem,8.5vw,8.6rem)] max-w-[13ch]"
-                />
-              ) : (
-                <h1 className="font-display uppercase leading-[0.9] text-[clamp(2.8rem,8.5vw,8.6rem)] max-w-[13ch] opacity-0">
-                  {hero.title}
-                </h1>
-              )}
-            </div>
-
-            {show3D && (
-              <div data-hero-fade className="mt-6 flex items-center gap-3 text-[11px] uppercase tracking-[0.25em] text-accent">
-                <span className="inline-block w-8 h-px bg-accent" />
-                <span>
-                  {heroSil.code}: {heroSil.name} · Talla {heroSil.cut.toUpperCase()}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Barra flotante inferior cristalina */}
-          <div
-            ref={bottomRef}
-            className="relative z-20 m-4 md:m-7 rounded-[1.6rem] bg-black/60 backdrop-blur-2xl border border-white/15 px-6 md:px-10 py-6 flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-10"
-          >
-            <div className="shrink-0">
-              <span className="font-display uppercase text-3xl md:text-5xl tracking-[0.14em] leading-none block">
-                {brand.name}
-              </span>
-              <span className="text-[9px] uppercase tracking-[0.35em] text-accent block mt-1">
-                4°39&apos;N 74°03&apos;W · BOGOTÁ
-              </span>
-            </div>
-            <p className="text-xs md:text-[13px] text-white/70 leading-relaxed max-w-xl flex-1">{hero.subtitle}</p>
-            <div className="flex flex-wrap items-center gap-4 pointer-events-auto">
-              {hero.secondaryLabel && (
-                <Link
-                  href={hero.secondaryHref || '/personalizador'}
-                  className="text-[11px] uppercase tracking-[0.2em] text-white/80 hover:text-accent underline underline-offset-8 decoration-white/30 transition"
-                >
-                  {hero.secondaryLabel}
-                </Link>
-              )}
-              {hero.ctaLabel && <PillCta href={hero.ctaHref || '/tienda'} label={hero.ctaLabel} />}
+          {/* Pie del Hero: Coordenadas y Hallmarks */}
+          <div ref={bottomRef} className="relative z-20 pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-4 text-xs text-white/50">
+            <span className="font-display uppercase text-lg sm:text-xl text-white tracking-[0.16em]">
+              {brand.name || 'ATELIER VENDÔME'}
+            </span>
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-[10px] uppercase tracking-[0.2em]">
+              <span>4°39&apos;N 74°03&apos;W · BOGOTÁ</span>
+              <span className="hidden sm:inline">·</span>
+              <span className="hidden sm:inline">HAUTE JOAILLERIE SUR-MESURE</span>
             </div>
           </div>
         </div>
@@ -402,73 +416,27 @@ export default function HomePage() {
               </p>
             </div>
 
-            {/* Banner destacado Estudio IA 2D -> 3D */}
-            <div className="mb-10 rounded-2xl border border-accent/35 bg-gradient-to-r from-accent/15 via-white/[0.03] to-transparent p-5 md:p-7 flex flex-col md:flex-row md:items-center justify-between gap-5">
-              <div className="space-y-1.5 max-w-2xl">
-                <div className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-accent">
-                  <Sparkles className="w-3.5 h-3.5" /> Nuevo · Escultor 2D → 3D Instantáneo + Meshy AI / Tripo3D
+            {/* Banner destacado: Innovación Escultor 2D a 3D */}
+            <div className="mb-10 rounded-2xl border border-accent/40 bg-gradient-to-r from-accent/15 via-white/[0.02] to-transparent p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-2 max-w-2xl">
+                <div className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-accent font-medium">
+                  <Sparkles className="w-3.5 h-3.5" /> Innovación Bespoke · Escultura 2D a 3D en Oro 18K
                 </div>
-                <h3 className="font-display uppercase text-2xl md:text-3xl">
-                  ¿Tu cliente tiene un boceto, logo, firma o foto? Súbelo y conviértelo en Oro 18k o Platino 3D
+                <h3 className="font-display uppercase text-2xl md:text-3xl leading-snug">
+                  Transforma un boceto, emblema familiar o monograma en una joya tridimensional
                 </h3>
                 <p className="text-xs text-white/65 leading-relaxed">
-                  Nuestro motor esculpe al instante cualquier imagen plana en un medallón, anillo de sello o dije calado en 3D sin costo, y además integra generación de mallas completas vía Meshy AI / Tripo3D o carga directa de archivos .GLB.
+                  Sube cualquier imagen plana (dibujo a mano, silueta o escudo) y nuestro motor la esculpe de inmediato en un medallón o anillo de sello 3D en oro macizo, listo para fundición en taller.
                 </p>
               </div>
               <div className="shrink-0">
-                <PillCta href="/personalizador?type=ai-relief" label="Probar Estudio 2D → 3D" />
+                <PillCta href="/personalizador?type=ai-relief" label="Probar Escultor 2D→3D" />
               </div>
             </div>
 
-            <div className="grid lg:grid-cols-12 gap-8 items-center">
-              {/* Lista de siluetas */}
-              <div className="lg:col-span-5 space-y-2.5 max-h-[560px] overflow-y-auto pr-1">
-                {BESPOKE_SILHOUETTES.map((sil, i) => {
-                  const isCurrent = activeSilIdx === i;
-                  return (
-                    <div
-                      key={sil.id}
-                      onMouseEnter={() => setActiveSilIdx(i)}
-                      onClick={() => setActiveSilIdx(i)}
-                      className={`cursor-pointer rounded-2xl border p-4 md:p-5 transition-all ${
-                        isCurrent
-                          ? 'border-accent bg-white/[0.05] shadow-lg'
-                          : 'border-white/10 hover:border-white/25 bg-transparent'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <span className="text-[10px] tracking-[0.25em] text-accent font-mono">
-                            {String(i + 1).padStart(2, '0')}
-                          </span>
-                          <div>
-                            <h3 className="font-display uppercase text-xl md:text-2xl leading-none">
-                              {sil.name}
-                            </h3>
-                            <span className="text-[10px] uppercase tracking-[0.2em] text-white/45">
-                              {sil.french}
-                            </span>
-                          </div>
-                        </div>
-                        <Link
-                          href={`/personalizador?style=${sil.id}&cut=${sil.cut}&band=${sil.band}`}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-white/20 hover:border-accent hover:bg-accent hover:text-on-accent px-3.5 py-1.5 text-[10px] uppercase tracking-[0.18em] transition"
-                        >
-                          Personalizar <ArrowUpRight className="w-3.5 h-3.5" />
-                        </Link>
-                      </div>
-                      {isCurrent && (
-                        <p className="text-xs text-white/65 leading-relaxed mt-3 pl-7">
-                          {sil.desc}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Escenario 3D en vivo de la silueta activa */}
-              <div className="lg:col-span-7 relative rounded-[2rem] border border-white/10 bg-[radial-gradient(ellipse_at_center,rgb(var(--accent)/0.2),#070709_70%)] h-[420px] md:h-[560px] overflow-hidden">
+            <div className="grid lg:grid-cols-12 gap-6 lg:gap-8 items-center">
+              {/* Escenario 3D en vivo de la silueta activa (primero en móvil para ver respuesta visual instantánea) */}
+              <div className="lg:col-span-7 order-1 lg:order-2 relative rounded-[1.8rem] sm:rounded-[2rem] border border-white/10 bg-[radial-gradient(ellipse_at_center,rgb(var(--accent)/0.2),#070709_70%)] h-[320px] sm:h-[420px] md:h-[560px] overflow-hidden">
                 <Suspense fallback={null}>
                   <JewelryCanvas
                     metalColor={showcaseSil.metalColor}
@@ -480,21 +448,67 @@ export default function HomePage() {
                   />
                 </Suspense>
 
-                <div className="absolute top-5 left-6 right-6 flex items-center justify-between text-[10px] uppercase tracking-[0.28em] text-white/60 pointer-events-none">
+                <div className="absolute top-4 sm:top-5 left-4 sm:left-6 right-4 sm:right-6 flex items-center justify-between text-[9px] sm:text-[10px] uppercase tracking-[0.24em] text-white/60 pointer-events-none">
                   <span>{showcaseSil.code}</span>
-                  <span>CORTE {showcaseSil.cut.toUpperCase()} · ARO {showcaseSil.band.toUpperCase()}</span>
+                  <span>{showcaseSil.cut.toUpperCase()} · {showcaseSil.band.toUpperCase()}</span>
                 </div>
 
-                <div className="absolute bottom-5 left-6 right-6 flex flex-wrap items-center justify-between gap-4">
+                <div className="absolute bottom-4 sm:bottom-5 left-4 sm:left-6 right-4 sm:right-6 flex flex-wrap items-center justify-between gap-3">
                   <div className="pointer-events-none">
-                    <div className="font-display uppercase text-2xl md:text-3xl">{showcaseSil.name}</div>
-                    <div className="text-xs text-white/55">Arrastra el anillo para girarlo en 360°</div>
+                    <div className="font-display uppercase text-xl sm:text-2xl md:text-3xl leading-none">{showcaseSil.name}</div>
+                    <div className="text-[11px] text-white/55 mt-0.5">Gira en 360° para inspeccionar facetas</div>
                   </div>
                   <PillCta
                     href={`/personalizador?style=${showcaseSil.id}&cut=${showcaseSil.cut}&band=${showcaseSil.band}`}
-                    label="Abrir en Atelier 3D"
+                    label="Personalizar 3D"
                   />
                 </div>
+              </div>
+
+              {/* Lista de siluetas */}
+              <div className="lg:col-span-5 order-2 lg:order-1 space-y-2.5 max-h-[480px] lg:max-h-[560px] overflow-y-auto pr-1">
+                {BESPOKE_SILHOUETTES.map((sil, i) => {
+                  const isCurrent = activeSilIdx === i;
+                  return (
+                    <div
+                      key={sil.id}
+                      onMouseEnter={() => setActiveSilIdx(i)}
+                      onClick={() => setActiveSilIdx(i)}
+                      className={`cursor-pointer rounded-2xl border p-3.5 sm:p-5 transition-all ${
+                        isCurrent
+                          ? 'border-accent bg-white/[0.05] shadow-lg'
+                          : 'border-white/10 hover:border-white/25 bg-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] tracking-[0.25em] text-accent font-mono">
+                            {String(i + 1).padStart(2, '0')}
+                          </span>
+                          <div>
+                            <h3 className="font-display uppercase text-lg sm:text-xl md:text-2xl leading-none">
+                              {sil.name}
+                            </h3>
+                            <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] text-white/45">
+                              {sil.french}
+                            </span>
+                          </div>
+                        </div>
+                        <Link
+                          href={`/personalizador?style=${sil.id}&cut=${sil.cut}&band=${sil.band}`}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-white/20 hover:border-accent hover:bg-accent hover:text-on-accent px-3 py-1 text-[9px] sm:text-[10px] uppercase tracking-[0.18em] transition shrink-0"
+                        >
+                          Crear <ArrowUpRight className="w-3 h-3" />
+                        </Link>
+                      </div>
+                      {isCurrent && (
+                        <p className="text-xs text-white/65 leading-relaxed mt-2.5 pl-6 sm:pl-7">
+                          {sil.desc}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -523,29 +537,17 @@ export default function HomePage() {
             .
           </p>
         ) : (
-          /* Editorial Staggered Grid (Lookbook Vogue / Cartier) */
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-y-16 md:gap-x-8 items-start">
-            {featured.map((p, i) => {
-              // Patrón asimétrico editorial cada 4 piezas
-              const mod = i % 4;
-              const colClass =
-                mod === 0
-                  ? 'md:col-span-7'
-                  : mod === 1
-                    ? 'md:col-span-5 md:mt-20'
-                    : mod === 2
-                      ? 'md:col-span-5'
-                      : 'md:col-span-7 md:-mt-16';
-              return (
-                <Reveal key={p.id} delay={(i % 2) * 0.1} y={50} className={colClass}>
-                  <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[0.28em] text-muted">
-                    <span>ARCHIVE N° 0{i + 1}</span>
-                    <span>{p.sku}</span>
-                  </div>
-                  <ProductCard product={p} />
-                </Reveal>
-              );
-            })}
+          /* Cuadrícula editorial de alta joyería sin colisiones ni márgenes negativos */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 items-start">
+            {featured.map((p, i) => (
+              <Reveal key={p.id} delay={(i % 4) * 0.08} y={30} className="w-full">
+                <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[0.25em] text-muted font-medium">
+                  <span>ARCHIVE N° 0{i + 1}</span>
+                  <span>{p.sku}</span>
+                </div>
+                <ProductCard product={p} />
+              </Reveal>
+            ))}
           </div>
         )}
       </section>

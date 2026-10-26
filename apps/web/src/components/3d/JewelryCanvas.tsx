@@ -1121,7 +1121,7 @@ export const JewelryCanvas: React.FC<JewelrySceneProps> = (props) => {
   const fillColor = mood === 'candle' ? '#ff9b54' : mood === 'daylight' ? '#bfe0ff' : '#d6e4ff';
 
   return (
-    <Canvas camera={{ position: [0, 0.95, 4.65], fov: 35 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
+    <Canvas camera={{ position: [0, 0.55, 4.85], fov: 34 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
       <ambientLight intensity={mood === 'daylight' ? 0.55 : 0.38} />
       <spotLight position={[4, 6, 4]} intensity={mood === 'candle' ? 110 : 95} angle={0.45} penumbra={1} color={keyColor} />
       <spotLight position={[-5, 3, -3]} intensity={55} angle={0.55} penumbra={1} color={fillColor} />
@@ -1143,7 +1143,7 @@ export const JewelryCanvas: React.FC<JewelrySceneProps> = (props) => {
       <ContactShadows position={[0, -1.68, 0]} opacity={0.58} scale={7.5} blur={2.4} far={3} />
 
       {props.interactive !== false ? (
-        <OrbitControls enablePan={false} minDistance={2.4} maxDistance={7.5} maxPolarAngle={Math.PI / 2 + 0.35} />
+        <OrbitControls target={[0, 0.32, 0]} enablePan={false} minDistance={2.4} maxDistance={7.5} maxPolarAngle={Math.PI / 2 + 0.35} />
       ) : null}
     </Canvas>
   );

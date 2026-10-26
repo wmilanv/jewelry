@@ -114,21 +114,48 @@ export default function CheckoutPage() {
           <ArrowLeft className="w-4 h-4" /> Seguir comprando
         </Link>
 
-        <div className="grid md:grid-cols-5 gap-12">
+        <div className="grid md:grid-cols-5 gap-8 lg:gap-12">
+          {/* Resumen rápido para móviles */}
+          <div className="md:hidden rounded-2xl border border-line bg-surface/60 p-4 space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-muted uppercase tracking-wider">{items.length} pieza{items.length === 1 ? '' : 's'} en pedido</span>
+              <span className="font-display text-xl text-accent">{formatMoney(total, settings)}</span>
+            </div>
+            <p className="text-[11px] text-muted/80">Incluye envío blindado y estuche de gala oficial.</p>
+          </div>
+
           <form id="checkout-form" onSubmit={payWompi} className="md:col-span-3 space-y-5">
             <div className="border-b border-line pb-4">
-              <span className="eyebrow">Pago seguro</span>
-              <h1 className="font-display text-4xl mt-1">Finalizar compra</h1>
+              <span className="eyebrow">Pago seguro & Confidencial</span>
+              <h1 className="font-display text-3xl sm:text-4xl mt-1">Finalizar compra</h1>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
-              <div><label className="label">Nombre completo</label><input required className="input" value={form.name} onChange={set('name')} /></div>
-              <div><label className="label">Correo electrónico</label><input required type="email" className="input" value={form.email} onChange={set('email')} /></div>
-              <div><label className="label">Teléfono / WhatsApp</label><input required className="input" value={form.phone} onChange={set('phone')} /></div>
-              <div><label className="label">Ciudad</label><input required className="input" value={form.city} onChange={set('city')} /></div>
+              <div>
+                <label className="label">Nombre completo</label>
+                <input required autoComplete="name" className="input" value={form.name} onChange={set('name')} placeholder="Ej. Camila Morales" />
+              </div>
+              <div>
+                <label className="label">Correo electrónico</label>
+                <input required type="email" autoComplete="email" className="input" value={form.email} onChange={set('email')} placeholder="tu@correo.com" />
+              </div>
+              <div>
+                <label className="label">Teléfono móvil / WhatsApp</label>
+                <input required type="tel" inputMode="tel" autoComplete="tel" className="input" value={form.phone} onChange={set('phone')} placeholder="+57 300 000 0000" />
+              </div>
+              <div>
+                <label className="label">Ciudad de entrega</label>
+                <input required autoComplete="address-level2" className="input" value={form.city} onChange={set('city')} placeholder="Bogotá, Medellín, etc." />
+              </div>
             </div>
-            <div><label className="label">Dirección de entrega</label><input required className="input" value={form.address} onChange={set('address')} /></div>
-            <div><label className="label">Notas del pedido (opcional)</label><textarea rows={3} className="input" value={form.notes} onChange={set('notes')} /></div>
+            <div>
+              <label className="label">Dirección completa de entrega</label>
+              <input required autoComplete="street-address" className="input" value={form.address} onChange={set('address')} placeholder="Calle, número, apto o torre" />
+            </div>
+            <div>
+              <label className="label">Notas del pedido o instrucciones de entrega (opcional)</label>
+              <textarea rows={3} className="input !min-h-[80px]" value={form.notes} onChange={set('notes')} placeholder="Indicaciones para la entrega o dedicatoria..." />
+            </div>
 
             {error && <p className="text-sm text-red-400 border border-red-400/30 p-3">{error}</p>}
 

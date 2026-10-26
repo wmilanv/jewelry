@@ -7,8 +7,8 @@ import { useStoreData } from '@/store/useStoreData';
 export function Preloader({ onDone }: { onDone?: () => void }) {
   const [show, setShow] = useState(true);
   const root = useRef<HTMLDivElement>(null);
-  const name = useStoreData((s) => s.settings.brand.name);
-  const tagline = useStoreData((s) => s.settings.brand.tagline);
+  const name = useStoreData((s) => s.settings.brand.name) || 'ATELIER VENDÔME';
+  const tagline = useStoreData((s) => s.settings.brand.tagline) || 'Haute Joaillerie & Bespoke 3D';
 
   useEffect(() => {
     if (sessionStorage.getItem('intro_seen')) {

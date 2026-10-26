@@ -168,12 +168,12 @@ export default function ProductPage() {
         <Reveal y={30} className="space-y-4 sticky top-28">
           <Media src={product.images[img]} art={product.art} alt={product.name} className="aspect-[4/5] rounded-[2rem] border border-line shadow-2xl" />
           {product.images.length > 1 && (
-            <div className="flex gap-3">
+            <div className="flex gap-2.5 sm:gap-3 overflow-x-auto no-scrollbar pb-1">
               {product.images.map((src, i) => (
                 <button
                   key={i}
                   onClick={() => setImg(i)}
-                  className={`w-20 h-20 rounded-2xl overflow-hidden border transition ${i === img ? 'border-accent shadow-md scale-105' : 'border-line opacity-70 hover:opacity-100'}`}
+                  className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border transition shrink-0 ${i === img ? 'border-accent shadow-md scale-105' : 'border-line opacity-70 hover:opacity-100'}`}
                 >
                   <Media src={src} art={product.art} alt="" className="w-full h-full" />
                 </button>

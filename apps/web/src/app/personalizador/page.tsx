@@ -23,6 +23,8 @@ import {
   Copy,
   X,
   Printer,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { formatMoney, useStoreData } from '@/store/useStoreData';
 import { useCartStore } from '@/store/useCartStore';
@@ -321,6 +323,7 @@ function CustomizerInner() {
   const [added, setAdded] = useState(false);
   const [showDossier, setShowDossier] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [fullscreen3D, setFullscreen3D] = useState(false);
 
   if (hydrated && !c.enabled) {
     return (
@@ -494,9 +497,15 @@ function CustomizerInner() {
   };
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col lg:flex-row bg-[#09090c] text-[#f4efe6]">
+    <div className="h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col lg:flex-row bg-[#09090c] text-[#f4efe6]">
       {/* ==================== VISOR 3D ==================== */}
-      <div className="relative flex-1 min-h-[42vh] lg:min-h-0">
+      <div
+        className={`relative ${
+          fullscreen3D
+            ? 'fixed inset-0 z-50 bg-[#09090c] flex flex-col'
+            : 'h-[36dvh] sm:h-[40dvh] lg:h-full lg:flex-1 shrink-0'
+        }`}
+      >
         <JewelryCanvas
           jewelryType={jewelryType}
           metalColor={shownMetal.color}
@@ -518,16 +527,16 @@ function CustomizerInner() {
         />
 
         {/* Barra superior sobre el visor */}
-        <div className="absolute top-5 left-5 right-5 z-10 flex items-center justify-between gap-3 pointer-events-none">
+        <div className="absolute top-3 sm:top-5 left-3 sm:left-5 right-3 sm:right-5 z-10 flex items-center justify-between gap-2 pointer-events-none">
           <Link
             href="/"
-            className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-black/55 backdrop-blur-md border border-white/15 px-5 py-2.5 text-[11px] uppercase tracking-[0.2em] text-white/80 hover:text-white hover:border-accent transition"
+            className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/15 px-3.5 sm:px-5 py-2 text-[10px] sm:text-[11px] uppercase tracking-[0.18em] text-white/80 hover:text-white hover:border-accent transition shrink-0"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> {settings.brand.name}
+            <ArrowLeft className="w-3.5 h-3.5" /> <span className="hidden xs:inline">{settings.brand.name}</span>
           </Link>
 
-          {/* Selector de atmósfera lumínica + rotación */}
-          <div className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur-md border border-white/15 p-1">
+          {/* Selector de atmósfera lumínica + rotación + botón pantalla completa */}
+          <div className="pointer-events-auto flex items-center gap-1 rounded-full bg-black/60 backdrop-blur-md border border-white/15 p-1">
             {(
               [
                 { id: 'studio', label: 'Estudio', icon: Disc },
@@ -538,12 +547,12 @@ function CustomizerInner() {
               <button
                 key={m.id}
                 onClick={() => setLighting(m.id)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[10px] uppercase tracking-[0.18em] transition ${
-                  lighting === m.id ? 'bg-white text-black font-medium' : 'text-white/65 hover:text-white'
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 sm:px-3 py-1 text-[9px] sm:text-[10px] uppercase tracking-[0.16em] transition ${
+                  lighting === m.id ? 'bg-white text-black font-semibold' : 'text-white/65 hover:text-white'
                 }`}
               >
                 <m.icon className="w-3 h-3" />
-                <span className="hidden sm:inline">{m.label}</span>
+                <span className="hidden md:inline">{m.label}</span>
               </button>
             ))}
             <button
@@ -553,32 +562,38 @@ function CustomizerInner() {
             >
               {autoRotate ? <Pause className="w-3.5 h-3.5" /> : <RotateCw className="w-3.5 h-3.5" />}
             </button>
+            <button
+              onClick={() => setFullscreen3D(!fullscreen3D)}
+              title={fullscreen3D ? 'Cerrar pantalla completa' : 'Pantalla completa 3D'}
+              className={`w-7 h-7 rounded-full flex lg:hidden items-center justify-center transition ${fullscreen3D ? 'bg-accent text-on-accent' : 'text-white/70 hover:text-white'}`}
+            >
+              {fullscreen3D ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            </button>
           </div>
         </div>
 
-        {/* Presets de Inspiración rápida */}
-        <div className="absolute bottom-5 left-5 right-5 z-10 flex flex-wrap items-end justify-between gap-4 pointer-events-none">
-          <div>
-            <span className="text-[10px] uppercase tracking-[0.3em] text-accent block">
+        {/* Presets de Inspiración rápida e info */}
+        <div className="absolute bottom-3 sm:bottom-5 left-3 sm:left-5 right-3 sm:right-5 z-10 flex flex-wrap items-end justify-between gap-3 pointer-events-none">
+          <div className="bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-white/10">
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.25em] text-accent block font-medium">
               {jTypeObj.label} · {shownSetting.name} · {shownCut.name}
             </span>
-            <p className="text-xs text-white/55">
-              Arrastra para inspeccionar en 360° · {carats.toFixed(2)} ct en {shownMetal.name}
+            <p className="text-[10px] sm:text-xs text-white/65">
+              Inspección 360° · {carats.toFixed(2)} ct en {shownMetal.name}
             </p>
           </div>
 
-          <div className="pointer-events-auto flex flex-wrap gap-1.5">
+          <div className="pointer-events-auto hidden sm:flex flex-wrap gap-1.5">
             {[
               { label: 'Toi et Moi Diamante & Esmeralda', type: 'ring' as const, setting: 'toi-et-moi' as const, cut: 'pear' as const, band: 'plain' as const, metalIdx: 0, gemIdx: 1, carats: 1.9 },
               { label: 'Cluster Floral Zafiro Rosa', type: 'ring' as const, setting: 'cluster' as const, cut: 'oval' as const, band: 'pave' as const, metalIdx: 1, gemIdx: 4, carats: 1.7 },
               { label: 'Tiara Imperial Marquesa', type: 'ring' as const, setting: 'tiara' as const, cut: 'marquise' as const, band: 'chevron' as const, metalIdx: 0, gemIdx: 0, carats: 1.8 },
               { label: 'Sello Real Asscher', type: 'ring' as const, setting: 'signet' as const, cut: 'asscher' as const, band: 'plain' as const, metalIdx: 0, gemIdx: 1, carats: 2.2 },
-              { label: 'Collar Corazón Rubí', type: 'necklace' as const, setting: 'halo' as const, cut: 'heart' as const, band: 'plain' as const, metalIdx: 0, gemIdx: 3, carats: 2.0 },
             ].map((p) => (
               <button
                 key={p.label}
                 onClick={() => applyPreset(p)}
-                className="rounded-full bg-black/60 backdrop-blur-md border border-white/15 hover:border-accent px-3.5 py-1.5 text-[10px] uppercase tracking-[0.16em] text-white/80 hover:text-accent transition"
+                className="rounded-full bg-black/60 backdrop-blur-md border border-white/15 hover:border-accent px-3 py-1 text-[9px] uppercase tracking-[0.14em] text-white/80 hover:text-accent transition"
               >
                 <Sparkles className="w-2.5 h-2.5 inline mr-1 text-accent" />
                 {p.label}
@@ -586,29 +601,45 @@ function CustomizerInner() {
             ))}
           </div>
         </div>
+
+        {fullscreen3D && (
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
+            <button
+              onClick={() => setFullscreen3D(false)}
+              className="btn-primary !py-2.5 !px-6 shadow-2xl !bg-accent !text-on-accent text-xs"
+            >
+              <Minimize2 className="w-3.5 h-3.5" /> Volver a Personalizar
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ==================== PANEL DE ARQUITECTURA BESPOKE + IA ==================== */}
-      <aside className="w-full lg:w-[540px] lg:h-full h-[58vh] bg-[#111116] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col">
+      <aside
+        className={`w-full lg:w-[540px] lg:h-full ${
+          fullscreen3D ? 'hidden lg:flex' : 'h-[64dvh] sm:h-[60dvh]'
+        } bg-[#111116] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col min-h-0 overflow-hidden`}
+      >
         {/* Encabezado y pestañas de pasos */}
-        <div className="p-5 pb-3.5 border-b border-white/10 space-y-3.5">
-          <div className="flex items-baseline justify-between">
+        <div className="p-4 sm:p-5 pb-3 border-b border-white/10 space-y-3 shrink-0">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <span className="eyebrow">{c.subtitle}</span>
-              <h1 className="font-display uppercase text-2xl md:text-3xl mt-0.5">{c.title}</h1>
+              <span className="eyebrow !text-[9px] sm:!text-[11px]">{c.subtitle}</span>
+              <h1 className="font-display uppercase text-xl sm:text-2xl mt-0.5 leading-none">{c.title}</h1>
             </div>
             <button
               onClick={() => {
                 setJewelryType('ai-relief');
                 setStep('ia2d3d');
               }}
-              className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 border border-accent/50 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-accent hover:bg-accent hover:text-on-accent transition"
+              className="inline-flex items-center gap-1 rounded-full bg-accent/15 border border-accent/50 px-2.5 sm:px-3 py-1 text-[9px] sm:text-[10px] uppercase tracking-[0.18em] text-accent hover:bg-accent hover:text-on-accent transition shrink-0"
             >
-              <Wand2 className="w-3 h-3" /> Subir Imagen 2D→3D
+              <Wand2 className="w-3 h-3" /> IA 2D→3D
             </button>
           </div>
 
-          <div className="grid grid-cols-5 gap-1 bg-black/40 p-1 rounded-full border border-white/10">
+          {/* Navegador horizontal deslizable de pasos */}
+          <div className="flex overflow-x-auto no-scrollbar gap-1.5 bg-black/40 p-1 rounded-full border border-white/10">
             {(
               [
                 { id: 'arquitectura', label: '1. Joya' },
@@ -621,8 +652,8 @@ function CustomizerInner() {
               <button
                 key={t.id}
                 onClick={() => setStep(t.id)}
-                className={`py-2 rounded-full text-[10px] uppercase tracking-[0.15em] transition ${
-                  step === t.id ? 'bg-accent text-on-accent font-semibold' : 'text-white/60 hover:text-white'
+                className={`shrink-0 px-3.5 py-1.5 text-center rounded-full text-[10px] uppercase tracking-[0.14em] transition whitespace-nowrap ${
+                  step === t.id ? 'bg-accent text-on-accent font-semibold shadow-md' : 'text-white/60 hover:text-white'
                 }`}
               >
                 {t.label}
@@ -632,7 +663,7 @@ function CustomizerInner() {
         </div>
 
         {/* Contenido desplazable del paso activo */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-7">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 overscroll-contain">
           {step === 'arquitectura' && (
             <>
               {/* Selector de Tipo de Joya */}
@@ -1167,14 +1198,14 @@ function CustomizerInner() {
           )}
         </div>
 
-        {/* Footer de precio y acción */}
-        <div className="border-t border-white/10 p-6 space-y-3 bg-black/50">
+        {/* Footer de precio y acción con soporte para safe-area móvil */}
+        <div className="border-t border-white/10 p-3.5 sm:p-5 space-y-2.5 sm:space-y-3 bg-black/80 backdrop-blur-md pb-[max(0.85rem,env(safe-area-inset-bottom))] shrink-0">
           <div className="flex justify-between items-baseline">
             <div>
-              <span className="text-[10px] uppercase tracking-[0.25em] text-white/50 block">Valor de la Creación</span>
-              <span className="text-[11px] text-white/45">Incluye certificado GIA y estuche de laca</span>
+              <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.25em] text-white/50 block">Valor de la Creación</span>
+              <span className="text-[10px] sm:text-[11px] text-white/45">Certificado GIA y estuche oficial</span>
             </div>
-            <span className="font-display text-3xl text-accent">{formatMoney(total, settings)}</span>
+            <span className="font-display text-2xl sm:text-3xl text-accent">{formatMoney(total, settings)}</span>
           </div>
 
           <button onClick={add} className="btn-primary w-full !bg-accent !text-on-accent hover:brightness-110 shadow-xl">

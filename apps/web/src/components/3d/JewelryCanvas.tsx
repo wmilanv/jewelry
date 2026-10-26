@@ -4,6 +4,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Float, Environment, Lightformer, ContactShadows, Sparkles, useGLTF, Center } from '@react-three/drei';
 import * as THREE from 'three';
 import type { BandStyleKey, CutShapeKey, JewelryTypeKey, SettingStyleKey } from '@/types';
+import { RELIEF_PRESETS } from '@/data/reliefPresets';
 
 export type LightingMood = 'studio' | 'candle' | 'daylight';
 
@@ -22,12 +23,20 @@ export interface JewelrySceneProps {
   interactive?: boolean;
   /** Imagen 2D (dataURL o URL) para esculpir en bajorrelieve / silueta 3D en tiempo real */
   reliefImageUrl?: string;
-  /** Profundidad del relieve 2D→3D (0.2 a 2.5) */
+  /** Profundidad del relieve 2D→3D (0.2 a 3.0) */
   reliefDepth?: number;
   /** Tipo de montura para la imagen 2D→3D ('medallion' | 'signet-ring' | 'cutout-charm') */
   reliefMount?: 'medallion' | 'signet-ring' | 'cutout-charm';
   /** Invertir mapa de alturas claro/oscuro */
   reliefInvert?: boolean;
+  /** Estilo de escultura ('relief' positivo / camafeo, 'intaglio' grabado fondo / lacre, 'engraving' fino) */
+  reliefStyle?: 'relief' | 'intaglio' | 'engraving';
+  /** Contraste / Nitidez del relieve (0.5 a 2.5) */
+  reliefContrast?: number;
+  /** Suavizado / Anti-ruido de trazo (0 a 3) */
+  reliefSmooth?: number;
+  /** Borde decorativo para el medallón ('milgrain' perlé | 'guilloche' solar | 'smooth' pulido) */
+  reliefBorder?: 'milgrain' | 'guilloche' | 'smooth';
   /** URL de modelo .GLB (generado con Meshy AI / Tripo3D o subido por el usuario) */
   customGlbUrl?: string;
   /** Si es true, aplica el material de oro/platino elegido al modelo GLB */
@@ -138,150 +147,356 @@ function GemMesh({
 }
 
 /* ======================================================================= */
-/*  MOTOR 2D → 3D INSTANTÁNEO (ESCULTOR DE RELIEVE Y SILUETA DESDE IMAGEN) */
+/*  MOTOR 2D → 3D INSTANTÁNEO HAUTE JOAILLERIE (ESCULTOR EN VIVO SIN API)  */
 /* ======================================================================= */
 function ImageReliefSculpture({
   imageUrl,
-  depth = 1.0,
+  depth = 1.25,
   mount = 'medallion',
   invert = false,
+  reliefStyle = 'relief',
+  reliefContrast = 1.2,
+  reliefSmooth = 0.8,
+  reliefBorder = 'milgrain',
+  metalColor,
   metalMat,
   gemMat,
   cutShape = 'round',
+  finish = 'polished',
   autoRotate = true,
 }: {
   imageUrl?: string;
   depth?: number;
   mount?: 'medallion' | 'signet-ring' | 'cutout-charm';
   invert?: boolean;
+  reliefStyle?: 'relief' | 'intaglio' | 'engraving';
+  reliefContrast?: number;
+  reliefSmooth?: number;
+  reliefBorder?: 'milgrain' | 'guilloche' | 'smooth';
+  metalColor: string;
   metalMat: React.ReactNode;
   gemMat: React.ReactNode;
   cutShape?: CutShapeKey;
+  finish?: 'polished' | 'satin' | 'hammered';
   autoRotate?: boolean;
 }) {
   const group = useRef<THREE.Group>(null);
   const [reliefGeo, setReliefGeo] = useState<THREE.BufferGeometry | null>(null);
+  const [bumpTex, setBumpTex] = useState<THREE.CanvasTexture | null>(null);
 
-  useFrame((_, delta) => {
-    if (group.current && autoRotate !== false) {
-      group.current.rotation.y += delta * 0.3;
+  useFrame((state, delta) => {
+    if (group.current) {
+      if (autoRotate !== false) {
+        group.current.rotation.y += delta * 0.28;
+      }
+      group.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.55) * 0.05 + 0.12;
     }
   });
 
   useEffect(() => {
-    const grid = 96;
+    let active = true;
+    const grid = 160;
     const plane = new THREE.PlaneGeometry(1.55, 1.55, grid, grid);
 
-    if (!imageUrl) {
-      // Si aún no hay imagen subida, genera un relieve geométrico de estrella polar
-      const pos = plane.attributes.position;
-      for (let i = 0; i < pos.count; i++) {
-        const x = pos.getX(i);
-        const y = pos.getY(i);
-        const r = Math.hypot(x, y);
-        const a = Math.atan2(y, x);
-        const star = Math.max(0, (0.68 - r) * (1 + 0.45 * Math.cos(a * 8)));
-        pos.setZ(i, star * 0.25 * depth);
-      }
-      plane.computeVertexNormals();
-      setReliefGeo(plane);
-      return;
-    }
-
+    const sourceUrl = imageUrl || RELIEF_PRESETS[0].svgDataUri;
     const img = new Image();
     img.crossOrigin = 'anonymous';
+
     img.onload = () => {
+      if (!active) return;
       const canvas = document.createElement('canvas');
-      canvas.width = grid + 1;
-      canvas.height = grid + 1;
-      const ctx = canvas.getContext('2d');
+      const size = 320;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) return;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, size, size);
+
+      if (reliefSmooth > 0) {
+        ctx.filter = `blur(${Math.min(reliefSmooth, 3)}px)`;
+      }
+
+      const aspect = (img.naturalWidth || img.width) / (img.naturalHeight || img.height || 1);
+      let dw = size * 0.92;
+      let dh = size * 0.92;
+      if (aspect > 1) {
+        dh = dw / aspect;
+      } else {
+        dw = dh * aspect;
+      }
+      const dx = (size - dw) / 2;
+      const dy = (size - dh) / 2;
+      ctx.drawImage(img, dx, dy, dw, dh);
+      ctx.filter = 'none';
+
+      const imgData = ctx.getImageData(0, 0, size, size);
+      const data = imgData.data;
+
+      // Muestreo perimetral para auto-detección de fondo claro
+      const cornerSamples = [
+        0, 1, 2, 3,
+        size - 4, size - 3, size - 2, size - 1,
+        (size - 1) * size, (size - 1) * size + 1,
+        size * size - 2, size * size - 1,
+      ];
+      let bgLumSum = 0;
+      for (const idx of cornerSamples) {
+        const p = idx * 4;
+        bgLumSum += (0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2]) / 255;
+      }
+      const avgBgLum = bgLumSum / cornerSamples.length;
+      const isLightBg = avgBgLum > 0.65;
+
+      const contrastK = Math.max(0.5, Math.min(2.8, reliefContrast));
       const pos = plane.attributes.position;
+      const w = grid + 1;
+      const h = grid + 1;
 
       for (let i = 0; i < pos.count; i++) {
-        const ix = i % (grid + 1);
-        const iy = Math.floor(i / (grid + 1));
-        const pIdx = (iy * (grid + 1) + ix) * 4;
+        const ix = i % w;
+        const iy = Math.floor(i / w);
+        const u = ix / (w - 1);
+        const v = 1 - iy / (h - 1);
+
+        const px = Math.min(size - 1, Math.max(0, Math.floor(u * (size - 1))));
+        const py = Math.min(size - 1, Math.max(0, Math.floor((1 - v) * (size - 1))));
+        const pIdx = (py * size + px) * 4;
+
         const r = data[pIdx] / 255;
         const g = data[pIdx + 1] / 255;
         const b = data[pIdx + 2] / 255;
         const alpha = data[pIdx + 3] / 255;
-        let lum = (0.299 * r + 0.587 * g + 0.114 * b) * alpha;
-        if (invert) lum = 1 - lum;
 
-        // Máscara circular suave para integrarse en medallón o sello
+        let rawLum = (0.299 * r + 0.587 * g + 0.114 * b) * alpha;
+
+        if (isLightBg) {
+          rawLum = Math.max(0, 1 - rawLum);
+        }
+
+        if (invert) {
+          rawLum = 1 - rawLum;
+        }
+
+        // Curva sigmoide para contraste profesional
+        let lum = 1 / (1 + Math.exp(-contrastK * 6 * (rawLum - 0.5)));
+        lum = Math.max(0, Math.min(1, (lum - 0.05) / 0.9));
+
+        // Máscara perimetral suave
         const vx = pos.getX(i);
         const vy = pos.getY(i);
         const dist = Math.hypot(vx, vy);
-        const mask = mount === 'cutout-charm' ? (alpha > 0.15 ? 1 : 0) : Math.max(0, Math.min(1, (0.76 - dist) * 5));
-        pos.setZ(i, lum * 0.22 * depth * mask);
+        const mask =
+          mount === 'cutout-charm'
+            ? (alpha > 0.3 ? 1 : 0)
+            : dist <= 0.70
+            ? 1
+            : dist >= 0.76
+            ? 0
+            : 0.5 + 0.5 * Math.cos((Math.PI * (dist - 0.70)) / (0.76 - 0.70));
+
+        let heightMultiplier = 0.22 * depth * mask;
+        if (reliefStyle === 'intaglio') {
+          heightMultiplier = -0.18 * depth * mask;
+        } else if (reliefStyle === 'engraving') {
+          heightMultiplier = 0.09 * depth * mask;
+        }
+
+        pos.setZ(i, lum * heightMultiplier);
       }
+
       plane.computeVertexNormals();
       setReliefGeo(plane);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.ClampToEdgeWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
+      setBumpTex((prev) => {
+        if (prev) prev.dispose();
+        return tex;
+      });
     };
-    img.src = imageUrl;
-  }, [imageUrl, depth, mount, invert]);
+
+    img.src = sourceUrl;
+
+    return () => {
+      active = false;
+      plane.dispose();
+    };
+  }, [imageUrl, depth, mount, invert, reliefStyle, reliefContrast, reliefSmooth]);
+
+  useEffect(() => {
+    return () => {
+      if (bumpTex) bumpTex.dispose();
+    };
+  }, [bumpTex]);
+
+  // Cuentas de oro para borde Milgrain (56 micro-esferas)
+  const milgrainPositions = useMemo(() => {
+    const count = 56;
+    const pts: [number, number, number][] = [];
+    const r = 0.88;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2;
+      pts.push([Math.cos(a) * r, Math.sin(a) * r, 0.068]);
+    }
+    return pts;
+  }, []);
+
+  const reliefMaterial = (
+    <meshPhysicalMaterial
+      color={metalColor}
+      metalness={1}
+      roughness={finish === 'satin' ? 0.32 : finish === 'hammered' ? 0.22 : 0.08}
+      clearcoat={finish === 'satin' ? 0.2 : 0.8}
+      clearcoatRoughness={0.08}
+      reflectivity={1}
+      envMapIntensity={2.8}
+      bumpMap={bumpTex || undefined}
+      bumpScale={reliefStyle === 'intaglio' ? -0.016 * depth : 0.018 * depth}
+    />
+  );
 
   if (mount === 'signet-ring') {
     const R = 1.15;
     return (
-      <group ref={group} position={[0, -0.2, 0]} rotation={[0.3, -0.35, 0]}>
-        <mesh castShadow>
-          <torusGeometry args={[R, 0.14, 48, 140]} />
+      <group ref={group} position={[0, -0.2, 0]} rotation={[0.34, -0.42, 0]}>
+        {/* Aro macizo de Chevalière */}
+        <mesh castShadow receiveShadow>
+          <torusGeometry args={[R, 0.15, 48, 140]} />
           {metalMat}
         </mesh>
-        {/* Meseta del sello */}
-        <mesh position={[0, R + 0.04, 0]}>
-          <cylinderGeometry args={[0.62, 0.36, 0.26, 48]} />
+        {/* Hombros de transición hacia la meseta */}
+        <mesh position={[0, R - 0.06, 0]}>
+          <cylinderGeometry args={[0.66, 0.38, 0.34, 48]} />
           {metalMat}
         </mesh>
+        {/* Meseta octogonal / bisel de protección */}
+        <mesh position={[0, R + 0.1, 0]}>
+          <cylinderGeometry args={[0.68, 0.65, 0.08, 48]} />
+          {metalMat}
+        </mesh>
+        <mesh position={[0, R + 0.14, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.64, 0.035, 20, 64]} />
+          {metalMat}
+        </mesh>
+        {/* Relieve esculpido en la meseta del sello */}
         {reliefGeo && (
           <mesh
             geometry={reliefGeo}
-            position={[0, R + 0.175, 0]}
+            position={[0, R + 0.138, 0]}
             rotation={[-Math.PI / 2, 0, 0]}
-            scale={[0.72, 0.72, 0.72]}
+            scale={[0.74, 0.74, 0.74]}
           >
-            {metalMat}
+            {reliefMaterial}
           </mesh>
         )}
       </group>
     );
   }
 
+  if (mount === 'cutout-charm') {
+    return (
+      <group ref={group} position={[0, 0, 0]}>
+        {/* Argolla superior de suspensión */}
+        <mesh position={[0, 0.96, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <torusGeometry args={[0.13, 0.035, 20, 48]} />
+          {metalMat}
+        </mesh>
+        {/* Silueta esculpida */}
+        {reliefGeo && (
+          <mesh geometry={reliefGeo} position={[0, 0, 0]}>
+            {reliefMaterial}
+          </mesh>
+        )}
+        {/* Placa trasera de soporte */}
+        <mesh position={[0, 0, -0.02]}>
+          <cylinderGeometry args={[0.78, 0.78, 0.04, 64]} />
+          {metalMat}
+        </mesh>
+      </group>
+    );
+  }
+
+  // Montura Medallón Talismán (Pendant Imperial)
   return (
-    <group ref={group} position={[0, -0.1, 0]}>
-      {/* Cadena superior */}
-      <mesh position={[0, 1.35, 0]} rotation={[0, 0, Math.PI / 4]}>
-        <torusGeometry args={[0.95, 0.025, 20, 100, Math.PI]} />
+    <group ref={group} position={[0, -0.05, 0]}>
+      {/* Cadena superior de oro */}
+      <mesh position={[0, 1.45, 0]} rotation={[0, 0, Math.PI / 4]}>
+        <torusGeometry args={[0.95, 0.024, 20, 100, Math.PI]} />
         {metalMat}
       </mesh>
-      {/* Argolla Pendentif (Bail) */}
-      <mesh position={[0, 1.05, 0]} rotation={[0, Math.PI / 2, 0]}>
-        <torusGeometry args={[0.14, 0.038, 20, 48]} />
+      {/* Argolla Pendentif (Bail) fluted */}
+      <mesh position={[0, 1.14, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <torusGeometry args={[0.15, 0.042, 24, 48]} />
+        {metalMat}
+      </mesh>
+      <mesh position={[0, 0.98, 0]} rotation={[0, 0, 0]}>
+        <torusGeometry args={[0.08, 0.022, 16, 32]} />
         {metalMat}
       </mesh>
 
-      {mount === 'medallion' && (
+      {/* Caja maciza del medallón */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.94, 0.94, 0.13, 64]} />
+        {metalMat}
+      </mesh>
+      {/* Moldura trasera biselada */}
+      <mesh position={[0, 0, -0.065]}>
+        <torusGeometry args={[0.93, 0.045, 20, 80]} />
+        {metalMat}
+      </mesh>
+
+      {/* Borde Decorativo según preferencia */}
+      {reliefBorder === 'milgrain' && (
         <>
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.92, 0.92, 0.12, 64]} />
+          <mesh position={[0, 0, 0.065]}>
+            <torusGeometry args={[0.92, 0.038, 20, 80]} />
             {metalMat}
           </mesh>
-          <mesh rotation={[0, 0, 0]}>
-            <torusGeometry args={[0.92, 0.055, 24, 96]} />
-            {metalMat}
-          </mesh>
-          {/* Gema de acento engastada en la cima del medallón */}
-          <GemMesh cut={cutShape} scale={0.22} position={[0, 0.76, 0.08]} rotation={[Math.PI / 2, 0, 0]} material={gemMat} />
+          {milgrainPositions.map((pos, idx) => (
+            <mesh key={idx} position={pos}>
+              <sphereGeometry args={[0.028, 12, 12]} />
+              {metalMat}
+            </mesh>
+          ))}
         </>
       )}
 
-      {reliefGeo && (
-        <mesh geometry={reliefGeo} position={[0, 0, mount === 'medallion' ? 0.062 : 0]}>
+      {reliefBorder === 'guilloche' && (
+        <>
+          <mesh position={[0, 0, 0.065]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.93, 0.93, 0.03, 48]} />
+            {metalMat}
+          </mesh>
+          <mesh position={[0, 0, 0.07]}>
+            <torusGeometry args={[0.91, 0.045, 20, 72]} />
+            {metalMat}
+          </mesh>
+        </>
+      )}
+
+      {reliefBorder === 'smooth' && (
+        <mesh position={[0, 0, 0.068]}>
+          <torusGeometry args={[0.92, 0.05, 24, 80]} />
           {metalMat}
+        </mesh>
+      )}
+
+      {/* Gema de acento engastada en la corona superior del medallón */}
+      <group position={[0, 0.81, 0.072]}>
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.13, 0.11, 0.05, 24]} />
+          {metalMat}
+        </mesh>
+        <GemMesh cut={cutShape} scale={0.24} position={[0, 0, 0.02]} rotation={[Math.PI / 2, 0, 0]} material={gemMat} />
+      </group>
+
+      {/* Escultura en relieve con micro-facetado */}
+      {reliefGeo && (
+        <mesh geometry={reliefGeo} position={[0, 0, 0.065]}>
+          {reliefMaterial}
         </mesh>
       )}
     </group>
@@ -529,6 +744,10 @@ function RingModel({
   reliefDepth,
   reliefMount,
   reliefInvert,
+  reliefStyle,
+  reliefContrast,
+  reliefSmooth,
+  reliefBorder,
   customGlbUrl,
   overrideGlbMaterial,
 }: JewelrySceneProps) {
@@ -648,9 +867,15 @@ function RingModel({
         depth={reliefDepth}
         mount={reliefMount}
         invert={reliefInvert}
+        reliefStyle={reliefStyle}
+        reliefContrast={reliefContrast}
+        reliefSmooth={reliefSmooth}
+        reliefBorder={reliefBorder}
+        metalColor={metalColor}
         metalMat={metalMat}
         gemMat={gemMat}
         cutShape={cutShape}
+        finish={finish}
         autoRotate={autoRotate}
       />
     );
@@ -1143,7 +1368,13 @@ export const JewelryCanvas: React.FC<JewelrySceneProps> = (props) => {
       <ContactShadows position={[0, -1.68, 0]} opacity={0.58} scale={7.5} blur={2.4} far={3} />
 
       {props.interactive !== false ? (
-        <OrbitControls target={[0, 0.32, 0]} enablePan={false} minDistance={2.4} maxDistance={7.5} maxPolarAngle={Math.PI / 2 + 0.35} />
+        <OrbitControls
+          target={props.jewelryType === 'ai-relief' ? [0, 0.05, 0] : [0, 0.32, 0]}
+          enablePan={false}
+          minDistance={2.4}
+          maxDistance={7.5}
+          maxPolarAngle={Math.PI / 2 + 0.35}
+        />
       ) : null}
     </Canvas>
   );

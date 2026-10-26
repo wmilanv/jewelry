@@ -25,7 +25,16 @@ import {
   Printer,
   Maximize2,
   Minimize2,
+  SlidersHorizontal,
+  RotateCcw,
+  ChevronDown,
+  ChevronUp,
+  Layers,
+  Crown,
+  Shield,
+  Eye,
 } from 'lucide-react';
+import { RELIEF_PRESETS, type ReliefPreset } from '@/data/reliefPresets';
 import { formatMoney, useStoreData } from '@/store/useStoreData';
 import { useCartStore } from '@/store/useCartStore';
 import type {
@@ -294,10 +303,17 @@ function CustomizerInner() {
   const [finishId, setFinishId] = useState<'polished' | 'satin' | 'hammered'>('polished');
 
   /* Estados para el Estudio 2D → 3D (Relieve Instantáneo + Meshy AI / Tripo3D + GLB) */
-  const [reliefImageUrl, setReliefImageUrl] = useState<string>('');
-  const [reliefDepth, setReliefDepth] = useState<number>(1.15);
+  const [reliefImageUrl, setReliefImageUrl] = useState<string>(RELIEF_PRESETS[0].svgDataUri);
+  const [activePresetId, setActivePresetId] = useState<string>('vendome-monogram');
+  const [reliefDepth, setReliefDepth] = useState<number>(1.25);
   const [reliefMount, setReliefMount] = useState<'medallion' | 'signet-ring' | 'cutout-charm'>('medallion');
   const [reliefInvert, setReliefInvert] = useState<boolean>(false);
+  const [reliefStyle, setReliefStyle] = useState<'relief' | 'intaglio' | 'engraving'>('relief');
+  const [reliefContrast, setReliefContrast] = useState<number>(1.2);
+  const [reliefSmooth, setReliefSmooth] = useState<number>(0.8);
+  const [reliefBorder, setReliefBorder] = useState<'milgrain' | 'guilloche' | 'smooth'>('milgrain');
+  const [showAdvancedRelief, setShowAdvancedRelief] = useState<boolean>(true);
+  const [showCloudAi, setShowCloudAi] = useState<boolean>(false);
   const [customGlbUrl, setCustomGlbUrl] = useState<string>('');
   const [overrideGlbMaterial, setOverrideGlbMaterial] = useState<boolean>(true);
   const [aiProvider, setAiProvider] = useState<'meshy' | 'tripo'>('meshy');
@@ -522,6 +538,10 @@ function CustomizerInner() {
           reliefDepth={reliefDepth}
           reliefMount={reliefMount}
           reliefInvert={reliefInvert}
+          reliefStyle={reliefStyle}
+          reliefContrast={reliefContrast}
+          reliefSmooth={reliefSmooth}
+          reliefBorder={reliefBorder}
           customGlbUrl={customGlbUrl}
           overrideGlbMaterial={overrideGlbMaterial}
         />
@@ -576,10 +596,20 @@ function CustomizerInner() {
         <div className="absolute bottom-3 sm:bottom-5 left-3 sm:left-5 right-3 sm:right-5 z-10 flex flex-wrap items-end justify-between gap-3 pointer-events-none">
           <div className="bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-white/10">
             <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.25em] text-accent block font-medium">
-              {jTypeObj.label} · {shownSetting.name} · {shownCut.name}
+              {jewelryType === 'ai-relief'
+                ? `Escultor 2D→3D · ${
+                    reliefMount === 'signet-ring'
+                      ? 'Anillo de Sello'
+                      : reliefMount === 'cutout-charm'
+                      ? 'Dije Silueta'
+                      : 'Medallón Talismán'
+                  }`
+                : `${jTypeObj.label} · ${shownSetting.name} · ${shownCut.name}`}
             </span>
             <p className="text-[10px] sm:text-xs text-white/65">
-              Inspección 360° · {carats.toFixed(2)} ct en {shownMetal.name}
+              {jewelryType === 'ai-relief'
+                ? `Relieve ${reliefDepth.toFixed(2)} mm · 25,920 facetas CNC en ${shownMetal.name}`
+                : `Inspección 360° · ${carats.toFixed(2)} ct en ${shownMetal.name}`}
             </p>
           </div>
 
@@ -915,30 +945,109 @@ function CustomizerInner() {
             </>
           )}
 
-          {/* ==================== PASO 4: ESTUDIO IA 2D → 3D + MESHY AI ==================== */}
+          {/* ==================== PASO 4: ESTUDIO IA 2D → 3D + ESCULTOR EN VIVO ==================== */}
           {step === 'ia2d3d' && (
             <div className="space-y-6">
-              <div className="rounded-2xl border border-accent/40 bg-accent/10 p-4 space-y-2">
-                <div className="flex items-center gap-2 text-accent text-xs font-semibold uppercase tracking-wider">
-                  <Wand2 className="w-4 h-4" /> Estudio 2D → 3D (Gratis + Meshy AI / Tripo3D)
+              {/* Banner Maestro Escultor */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-accent/20 via-accent/10 to-transparent border border-accent/40 shadow-lg shadow-black/40">
+                <div className="space-y-1">
+                  <span className="text-[10px] uppercase tracking-[0.25em] text-accent font-semibold flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" /> Modo Escultor en Vivo Bespoke (Sin API Key)
+                  </span>
+                  <h4 className="text-base font-display uppercase tracking-wide text-white">
+                    Escultura 2D → 3D de Alta Precisión CNC
+                  </h4>
+                  <p className="text-[11px] text-white/60 max-w-md leading-relaxed">
+                    Malla ultra-densa de 25,920 polígonos con deformación milimétrica continua y micro-facetado sobre oro macizo o platino.
+                  </p>
                 </div>
-                <p className="text-xs text-white/75 leading-relaxed">
-                  Sube cualquier imagen plana (boceto, escudo, inicial, firma o foto de una joya). Tienes <b>2 modos</b>:
-                  <br />• <b>Modo A (Instantáneo y 100% Gratis):</b> Convierte tu imagen al instante en una joya 3D esculpida en bajorrelieve sobre medallón, anillo de sello o dije calado.
-                  <br />• <b>Modo B (Meshy AI / Tripo3D Cloud):</b> Genera una malla 3D completa `.GLB` mediante inteligencia artificial o carga tu propio archivo `.GLB`.
-                </p>
+                <button
+                  type="button"
+                  onClick={() => setJewelryType('ai-relief')}
+                  className={`text-[10px] uppercase tracking-wider px-4 py-2 rounded-full border transition shrink-0 ${
+                    jewelryType === 'ai-relief'
+                      ? 'border-accent bg-accent text-on-accent font-semibold shadow-lg shadow-accent/25'
+                      : 'border-white/20 text-white/70 hover:border-white/50 bg-black/40'
+                  }`}
+                >
+                  {jewelryType === 'ai-relief' ? '✓ Activo en Visor' : 'Activar en Visor'}
+                </button>
               </div>
 
-              {/* 1. Subir imagen plana */}
-              <div className="space-y-3">
-                <span className="label">1. Sube tu Imagen Plana (PNG, JPG, Boceto o Logo)</span>
-                <div className="flex gap-3 items-center">
+              {/* 1. Galería de Emblemas de Autor */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="label !mb-0">1. Colección de Emblemas de Autor (Presets 1-Click)</span>
+                  <span className="text-[10px] uppercase tracking-wider text-accent font-medium">5 Emblemas</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {RELIEF_PRESETS.map((preset) => {
+                    const isCurrent = activePresetId === preset.id && !reliefImageUrl.startsWith('data:image/png');
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          setActivePresetId(preset.id);
+                          setReliefImageUrl(preset.svgDataUri);
+                          setReliefDepth(preset.defaultDepth);
+                          setReliefBorder(preset.recommendedBorder);
+                          setReliefStyle(preset.recommendedStyle);
+                          setJewelryType('ai-relief');
+                        }}
+                        className={`flex items-start gap-3 p-3 rounded-2xl border text-left transition ${
+                          isCurrent
+                            ? 'border-accent bg-accent/15 ring-1 ring-accent/60 shadow-md shadow-accent/10'
+                            : 'border-white/10 hover:border-white/30 bg-black/30'
+                        }`}
+                      >
+                        <div className="w-11 h-11 rounded-xl bg-black/80 border border-white/15 flex items-center justify-center shrink-0 p-1.5 overflow-hidden">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={preset.svgDataUri} alt={preset.name} className="w-full h-full object-contain filter invert" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-xs font-semibold text-white truncate">{preset.name}</span>
+                            {isCurrent && <Check className="w-3.5 h-3.5 text-accent shrink-0" />}
+                          </div>
+                          <span className="text-[9px] uppercase tracking-wider text-accent/80 block mt-0.5">{preset.tag}</span>
+                          <p className="text-[10px] text-white/50 line-clamp-1 mt-0.5 leading-snug">{preset.subtitle}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Cargar obra o dibujo propio */}
+              <div className="space-y-2 rounded-2xl border border-white/10 bg-black/30 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="label !mb-0">O Sube Tu Propio Boceto, Firma o Logotipo</span>
+                  {reliefImageUrl && activePresetId === '' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const defaultPreset = RELIEF_PRESETS[0];
+                        setActivePresetId(defaultPreset.id);
+                        setReliefImageUrl(defaultPreset.svgDataUri);
+                        setReliefDepth(defaultPreset.defaultDepth);
+                        setReliefBorder(defaultPreset.recommendedBorder);
+                        setReliefStyle(defaultPreset.recommendedStyle);
+                      }}
+                      className="text-[10px] text-accent hover:underline flex items-center gap-1"
+                    >
+                      <RotateCcw className="w-3 h-3" /> Restaurar Emblema Vendôme
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => imgInputRef.current?.click()}
-                    className="btn-outline !py-3 flex-1 !border-white/25"
+                    className="btn-outline !py-2.5 flex-1 !border-white/25 flex items-center justify-center gap-2 !text-xs hover:!border-accent"
                   >
-                    <Upload className="w-4 h-4" /> Seleccionar imagen 2D…
+                    <Upload className="w-3.5 h-3.5 text-accent" /> Cargar imagen PNG, JPG o SVG…
                   </button>
                   <input
                     ref={imgInputRef}
@@ -950,77 +1059,143 @@ function CustomizerInner() {
                       if (!file) return;
                       const url = await readImageDataUrl(file);
                       setReliefImageUrl(url);
+                      setActivePresetId('');
                       setJewelryType('ai-relief');
                       e.target.value = '';
                     }}
                   />
                 </div>
 
-                {reliefImageUrl && (
-                  <div className="flex items-center gap-4 p-3 rounded-2xl border border-white/10 bg-black/30">
+                {reliefImageUrl && activePresetId === '' && (
+                  <div className="flex items-center gap-3 p-3 rounded-xl border border-accent/40 bg-accent/10 mt-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={reliefImageUrl} alt="Referencia 2D" className="w-16 h-16 rounded-xl object-cover border border-white/20" />
-                    <div className="flex-1 text-xs space-y-1">
-                      <div className="text-accent font-medium">¡Imagen convertida a Relieve 3D!</div>
-                      <div className="text-white/55">Puedes cambiar el metal en el paso 3 y ajustar la profundidad abajo.</div>
+                    <img src={reliefImageUrl} alt="Boceto cargado" className="w-12 h-12 rounded-lg object-cover border border-white/20 bg-black/60 shrink-0" />
+                    <div className="flex-1 text-xs space-y-0.5">
+                      <div className="text-accent font-semibold flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Imagen Personalizada Esculpida en 3D
+                      </div>
+                      <div className="text-white/60 text-[11px] leading-tight">
+                        Fondo nivelado automáticamente. Puedes afinar profundidad, nitidez y técnica en los controles inferiores.
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Controles del Escultor 2D → 3D Instantáneo */}
-              <div className="space-y-4 rounded-2xl border border-white/10 bg-black/30 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="eyebrow">Modo A · Escultor 3D en Vivo (Sin API Key)</span>
-                  <button
-                    type="button"
-                    onClick={() => setJewelryType('ai-relief')}
-                    className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full border ${
-                      jewelryType === 'ai-relief' ? 'border-accent bg-accent text-on-accent' : 'border-white/20 text-white/60'
-                    }`}
-                  >
-                    {jewelryType === 'ai-relief' ? 'Activo en visor' : 'Activar'}
-                  </button>
+              {/* 2. Montura de Joyería */}
+              <div className="space-y-2">
+                <span className="label">2. Montura de Joyería</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {(
+                    [
+                      { id: 'medallion', label: 'Medallón Collar', sub: 'Pendentif Talismán con Diamante' },
+                      { id: 'signet-ring', label: 'Anillo de Sello', sub: 'Sortija Chevalière Biselada' },
+                      { id: 'cutout-charm', label: 'Dije Silueta', sub: 'Troquel Esculpido sin Fondo' },
+                    ] as const
+                  ).map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setReliefMount(m.id);
+                        setJewelryType('ai-relief');
+                      }}
+                      className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
+                        reliefMount === m.id && jewelryType === 'ai-relief'
+                          ? 'border-accent bg-accent/15 ring-1 ring-accent/50 text-white'
+                          : 'border-white/10 hover:border-white/25 text-white/70 bg-black/20'
+                      }`}
+                    >
+                      <span className="text-xs font-semibold block">{m.label}</span>
+                      <span className="text-[10px] text-white/50 block mt-1 leading-tight">{m.sub}</span>
+                    </button>
+                  ))}
                 </div>
+              </div>
 
-                <div>
-                  <span className="label">Tipo de Joya donde esculpir tu imagen</span>
-                  <div className="grid grid-cols-3 gap-2">
+              {/* 3. Técnica de Escultura */}
+              <div className="space-y-2">
+                <span className="label">3. Técnica de Escultura de Taller</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {(
+                    [
+                      { id: 'relief', label: 'Relieve Positivo', sub: 'Camafeo con crestas elevadas' },
+                      { id: 'intaglio', label: 'Sello Inciso (Intaglio)', sub: 'Tallado en hueco para lacre real' },
+                      { id: 'engraving', label: 'Grabado Numismático', sub: 'Bajorrelieve satinado suave' },
+                    ] as const
+                  ).map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        setReliefStyle(s.id);
+                        setJewelryType('ai-relief');
+                      }}
+                      className={`p-3 rounded-2xl border text-left transition ${
+                        reliefStyle === s.id && jewelryType === 'ai-relief'
+                          ? 'border-accent bg-accent/15 ring-1 ring-accent/50 text-white'
+                          : 'border-white/10 text-white/65 hover:border-white/25 bg-black/20'
+                      }`}
+                    >
+                      <span className="text-xs font-semibold block">{s.label}</span>
+                      <span className="text-[10px] text-white/45 block mt-1 leading-tight">{s.sub}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 4. Marco Perimetral (si es Medallón) */}
+              {reliefMount === 'medallion' && (
+                <div className="space-y-2">
+                  <span className="label">4. Marco Perimetral del Medallón</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {(
                       [
-                        { id: 'medallion', label: 'Medallón Collar' },
-                        { id: 'signet-ring', label: 'Anillo de Sello' },
-                        { id: 'cutout-charm', label: 'Dije Silueta' },
+                        { id: 'milgrain', label: 'Corona Milgrain (Perlé)', sub: '56 micro-esferas de oro macizo' },
+                        { id: 'guilloche', label: 'Estrías Guilloché', sub: 'Rayos solares facetados de orfebrería' },
+                        { id: 'smooth', label: 'Bisel Pulido Espejo', sub: 'Moldura clásica pura y biselada' },
                       ] as const
-                    ).map((m) => (
+                    ).map((b) => (
                       <button
-                        key={m.id}
+                        key={b.id}
                         type="button"
                         onClick={() => {
-                          setReliefMount(m.id);
+                          setReliefBorder(b.id);
                           setJewelryType('ai-relief');
                         }}
-                        className={`p-2.5 rounded-xl border text-xs transition ${
-                          reliefMount === m.id && jewelryType === 'ai-relief'
-                            ? 'border-accent bg-accent/15 text-white'
-                            : 'border-white/10 text-white/65'
+                        className={`p-3 rounded-2xl border text-left transition ${
+                          reliefBorder === b.id && jewelryType === 'ai-relief'
+                            ? 'border-accent bg-accent/15 ring-1 ring-accent/50 text-white'
+                            : 'border-white/10 text-white/65 hover:border-white/25 bg-black/20'
                         }`}
                       >
-                        {m.label}
+                        <span className="text-xs font-semibold block">{b.label}</span>
+                        <span className="text-[10px] text-white/45 block mt-1 leading-tight">{b.sub}</span>
                       </button>
                     ))}
                   </div>
                 </div>
+              )}
 
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-white/60">Profundidad del Relieve 3D</span>
-                    <b className="text-accent">{reliefDepth.toFixed(2)} mm</b>
+              {/* 5. Calibración Escultórica Milimétrica CNC */}
+              <div className="space-y-4 rounded-2xl border border-white/10 bg-black/30 p-4">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                  <span className="label flex items-center gap-1.5 !mb-0 text-accent">
+                    <SlidersHorizontal className="w-3.5 h-3.5" /> Calibración Escultórica CNC
+                  </span>
+                  <span className="text-[10px] uppercase tracking-wider text-white/45">Tolerancia ±0.03 mm</span>
+                </div>
+
+                {/* Profundidad */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-white/60">Profundidad del Relieve</span>
+                    <b className="text-accent font-mono">{reliefDepth.toFixed(2)} mm</b>
                   </div>
                   <input
                     type="range"
                     min={0.2}
-                    max={2.5}
+                    max={3.0}
                     step={0.05}
                     value={reliefDepth}
                     onChange={(e) => {
@@ -1029,9 +1204,60 @@ function CustomizerInner() {
                     }}
                     className="w-full accent-[rgb(var(--accent))]"
                   />
+                  <div className="flex justify-between text-[10px] text-white/40">
+                    <span>0.20 mm (Micro-grabado)</span>
+                    <span>1.50 mm (Estándar)</span>
+                    <span>3.00 mm (Alto relieve)</span>
+                  </div>
                 </div>
 
-                <label className="flex items-center gap-2 text-xs text-white/75 cursor-pointer">
+                {/* Nitidez / Contraste */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-white/60">Definición de Aristas / Contraste</span>
+                    <b className="text-accent font-mono">{reliefContrast.toFixed(1)}×</b>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={2.5}
+                    step={0.1}
+                    value={reliefContrast}
+                    onChange={(e) => {
+                      setReliefContrast(Number(e.target.value));
+                      setJewelryType('ai-relief');
+                    }}
+                    className="w-full accent-[rgb(var(--accent))]"
+                  />
+                  <div className="flex justify-between text-[10px] text-white/40">
+                    <span>0.5× (Trazos suaves)</span>
+                    <span>1.2× (Equilibrado)</span>
+                    <span>2.5× (Aristas ultra-nítidas)</span>
+                  </div>
+                </div>
+
+                {/* Suavizado / Anti-ruido */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-white/60">Filtro de Suavizado Orgánico</span>
+                    <b className="text-accent font-mono">{reliefSmooth.toFixed(1)} px</b>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.0}
+                    max={3.0}
+                    step={0.2}
+                    value={reliefSmooth}
+                    onChange={(e) => {
+                      setReliefSmooth(Number(e.target.value));
+                      setJewelryType('ai-relief');
+                    }}
+                    className="w-full accent-[rgb(var(--accent))]"
+                  />
+                </div>
+
+                {/* Invertir mapa */}
+                <label className="flex items-center gap-2.5 text-xs text-white/75 cursor-pointer pt-2 border-t border-white/10">
                   <input
                     type="checkbox"
                     checked={reliefInvert}
@@ -1039,101 +1265,145 @@ function CustomizerInner() {
                       setReliefInvert(e.target.checked);
                       setJewelryType('ai-relief');
                     }}
+                    className="rounded border-white/30 text-accent focus:ring-accent"
                   />
-                  Invertir relieve (zonas oscuras sobresalen en vez de las claras)
+                  <span>Invertir mapa de relieve (zonas oscuras sobresalen en lugar de las claras)</span>
                 </label>
               </div>
 
-              {/* Modo B: Meshy AI / Tripo3D Cloud + Carga directa de .GLB */}
-              <div className="space-y-4 rounded-2xl border border-white/10 bg-black/30 p-4">
-                <span className="eyebrow block">Modo B · Generación Cloud Meshy AI / Tripo3D (.GLB)</span>
-                <div className="grid grid-cols-2 gap-2">
+              {/* Ficha Técnica Rápida & Estimación */}
+              <div className="p-4 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5 text-xs">
+                  <div className="text-white/50 text-[10px] uppercase tracking-wider">Metal Activo de Taller</div>
+                  <div className="text-white font-medium flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full border border-white/30 shrink-0" style={{ backgroundColor: shownMetal.color }} />
+                    {shownMetal.name} ({finish.label})
+                  </div>
+                  <div className="text-[11px] text-accent">
+                    Peso est. cera perdida: {reliefMount === 'signet-ring' ? '~16.8 g' : reliefMount === 'cutout-charm' ? '~8.5 g' : '~14.5 g'} en Oro 18k
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setAiProvider('meshy')}
-                    className={`py-2 rounded-xl border text-xs ${
-                      aiProvider === 'meshy' ? 'border-accent bg-accent/15 text-white' : 'border-white/10 text-white/60'
-                    }`}
+                    onClick={() => setStep('metal')}
+                    className="btn-outline !py-2 !px-3 !text-xs !border-white/20 !text-white/80 hover:!border-white/40"
                   >
-                    Meshy AI (Image-to-3D)
+                    Cambiar Metal
                   </button>
                   <button
                     type="button"
-                    onClick={() => setAiProvider('tripo')}
-                    className={`py-2 rounded-xl border text-xs ${
-                      aiProvider === 'tripo' ? 'border-accent bg-accent/15 text-white' : 'border-white/10 text-white/60'
-                    }`}
+                    onClick={() => setShowDossier(true)}
+                    className="btn-outline !py-2 !px-3.5 !text-xs !border-accent/50 !text-accent hover:!bg-accent hover:!text-on-accent transition"
                   >
-                    Tripo3D AI
+                    <FileText className="w-3.5 h-3.5" /> Ficha Técnica
                   </button>
                 </div>
+              </div>
 
-                <div>
-                  <label className="label">
-                    API Key de {aiProvider === 'meshy' ? 'Meshy.ai' : 'Tripo3D.ai'} (opcional si ya está en .env o /admin)
-                  </label>
-                  <input
-                    type="password"
-                    value={userAiKey}
-                    onChange={(e) => setUserAiKey(e.target.value)}
-                    placeholder={aiProvider === 'meshy' ? 'msy_...' : 'tsk_...'}
-                    className="input !bg-black/50 !border-white/15 !text-white text-xs"
-                  />
-                </div>
-
+              {/* Modo B: Meshy AI / Tripo3D Cloud + Carga de .GLB (Colapsable) */}
+              <div className="rounded-2xl border border-white/10 bg-black/20 overflow-hidden">
                 <button
                   type="button"
-                  disabled={aiLoading}
-                  onClick={generateWithMeshyAi}
-                  className="btn-primary w-full !py-3 !bg-accent !text-on-accent"
+                  onClick={() => setShowCloudAi(!showCloudAi)}
+                  className="w-full flex items-center justify-between p-4 text-left text-xs text-white/70 hover:text-white transition"
                 >
-                  {aiLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Generando 3D ({aiProgress}%)…
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="w-4 h-4" /> Generar Malla 3D Completa con IA
-                    </>
-                  )}
+                  <span className="flex items-center gap-2 font-medium">
+                    <Box className="w-4 h-4 text-white/50" /> Modo B · Generación Cloud Meshy AI / Tripo3D (.GLB)
+                  </span>
+                  {showCloudAi ? <ChevronUp className="w-4 h-4 text-white/50" /> : <ChevronDown className="w-4 h-4 text-white/50" />}
                 </button>
+                {showCloudAi && (
+                  <div className="p-4 pt-1 space-y-4 border-t border-white/10">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAiProvider('meshy')}
+                        className={`py-2 rounded-xl border text-xs ${
+                          aiProvider === 'meshy' ? 'border-accent bg-accent/15 text-white' : 'border-white/10 text-white/60'
+                        }`}
+                      >
+                        Meshy AI (Image-to-3D)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAiProvider('tripo')}
+                        className={`py-2 rounded-xl border text-xs ${
+                          aiProvider === 'tripo' ? 'border-accent bg-accent/15 text-white' : 'border-white/10 text-white/60'
+                        }`}
+                      >
+                        Tripo3D AI
+                      </button>
+                    </div>
 
-                {aiStatus && <p className="text-xs text-accent">{aiStatus}</p>}
-
-                <div className="border-t border-white/10 pt-3 space-y-2">
-                  <span className="label">¿Ya tienes un modelo .GLB de Meshy, Blender o Rhino?</span>
-                  <button
-                    type="button"
-                    onClick={() => glbInputRef.current?.click()}
-                    className="btn-outline w-full !py-2.5 !border-white/20"
-                  >
-                    <Box className="w-4 h-4" /> Cargar archivo 3D (.GLB / .GLTF)
-                  </button>
-                  <input
-                    ref={glbInputRef}
-                    type="file"
-                    accept=".glb,.gltf"
-                    hidden
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const url = URL.createObjectURL(file);
-                      setCustomGlbUrl(url);
-                      setJewelryType('glb-custom');
-                      e.target.value = '';
-                    }}
-                  />
-                  {customGlbUrl && (
-                    <label className="flex items-center gap-2 text-xs text-white/75 pt-1 cursor-pointer">
+                    <div>
+                      <label className="label">
+                        API Key de {aiProvider === 'meshy' ? 'Meshy.ai' : 'Tripo3D.ai'} (opcional si ya está en .env o /admin)
+                      </label>
                       <input
-                        type="checkbox"
-                        checked={overrideGlbMaterial}
-                        onChange={(e) => setOverrideGlbMaterial(e.target.checked)}
+                        type="password"
+                        value={userAiKey}
+                        onChange={(e) => setUserAiKey(e.target.value)}
+                        placeholder={aiProvider === 'meshy' ? 'msy_...' : 'tsk_...'}
+                        className="input !bg-black/50 !border-white/15 !text-white text-xs"
                       />
-                      Bañar el modelo 3D con el metal seleccionado ({shownMetal.name})
-                    </label>
-                  )}
-                </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={aiLoading}
+                      onClick={generateWithMeshyAi}
+                      className="btn-primary w-full !py-3 !bg-accent !text-on-accent"
+                    >
+                      {aiLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" /> Generando 3D ({aiProgress}%)…
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="w-4 h-4" /> Generar Malla 3D Completa con IA
+                        </>
+                      )}
+                    </button>
+
+                    {aiStatus && <p className="text-xs text-accent">{aiStatus}</p>}
+
+                    <div className="border-t border-white/10 pt-3 space-y-2">
+                      <span className="label">¿Ya tienes un modelo .GLB de Meshy, Blender o Rhino?</span>
+                      <button
+                        type="button"
+                        onClick={() => glbInputRef.current?.click()}
+                        className="btn-outline w-full !py-2.5 !border-white/20"
+                      >
+                        <Box className="w-4 h-4" /> Cargar archivo 3D (.GLB / .GLTF)
+                      </button>
+                      <input
+                        ref={glbInputRef}
+                        type="file"
+                        accept=".glb,.gltf"
+                        hidden
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const url = URL.createObjectURL(file);
+                          setCustomGlbUrl(url);
+                          setJewelryType('glb-custom');
+                          e.target.value = '';
+                        }}
+                      />
+                      {customGlbUrl && (
+                        <label className="flex items-center gap-2 text-xs text-white/75 pt-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={overrideGlbMaterial}
+                            onChange={(e) => setOverrideGlbMaterial(e.target.checked)}
+                          />
+                          Bañar el modelo 3D con el metal seleccionado ({shownMetal.name})
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1272,40 +1542,92 @@ function CustomizerInner() {
 
             <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <span className="font-display uppercase text-xl text-accent">{setting.name}</span>
+                <span className="font-display uppercase text-xl text-accent">
+                  {jewelryType === 'ai-relief' ? 'Escultura 2D → 3D Bespoke' : setting.name}
+                </span>
                 <span className="text-[10px] uppercase tracking-widest text-white/50">{jTypeObj.label}</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div>
-                  <span className="text-white/45 block text-[10px] uppercase tracking-wider">Gema Principal</span>
-                  <span className="font-medium text-white">{gem.name} ({carats.toFixed(2)} Carats)</span>
-                </div>
-                <div>
-                  <span className="text-white/45 block text-[10px] uppercase tracking-wider">Corte / Talla</span>
-                  <span className="font-medium text-white">{cut.name}</span>
-                </div>
-                <div>
-                  <span className="text-white/45 block text-[10px] uppercase tracking-wider">Metal Noble</span>
-                  <span className="font-medium text-white">{metal.name}</span>
-                </div>
-                <div>
-                  <span className="text-white/45 block text-[10px] uppercase tracking-wider">Aro & Acabado</span>
-                  <span className="font-medium text-white">{band.name} ({finish.label})</span>
-                </div>
-                {jewelryType === 'ring' && (
+              {jewelryType === 'ai-relief' ? (
+                <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
-                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Medida / Talla</span>
-                    <span className="font-medium text-accent">Talla {ringSize} (US / Colombia)</span>
+                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Montura de Joya</span>
+                    <span className="font-medium text-white">
+                      {reliefMount === 'signet-ring'
+                        ? 'Anillo de Sello (Chevalière)'
+                        : reliefMount === 'cutout-charm'
+                        ? 'Dije Silueta Calado'
+                        : 'Medallón Talismán (Collar)'}
+                    </span>
                   </div>
-                )}
-                {engraving && (
                   <div>
-                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Grabado Láser</span>
-                    <span className="font-medium text-white">&ldquo;{engraving}&rdquo;</span>
+                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Técnica de Relieve</span>
+                    <span className="font-medium text-accent">
+                      {reliefStyle === 'intaglio'
+                        ? 'Sello Inciso (Intaglio)'
+                        : reliefStyle === 'engraving'
+                        ? 'Grabado Numismático'
+                        : 'Relieve Positivo (Camafeo)'}{' '}
+                      ({reliefDepth.toFixed(2)} mm)
+                    </span>
                   </div>
-                )}
-              </div>
+                  <div>
+                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Metal Noble</span>
+                    <span className="font-medium text-white">{metal.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Acabado Superficial</span>
+                    <span className="font-medium text-white">{finish.label}</span>
+                  </div>
+                  {reliefMount === 'medallion' && (
+                    <div>
+                      <span className="text-white/45 block text-[10px] uppercase tracking-wider">Marco Perimetral</span>
+                      <span className="font-medium text-white">
+                        {reliefBorder === 'milgrain'
+                          ? 'Corona Milgrain (Perlé 56 cuentas)'
+                          : reliefBorder === 'guilloche'
+                          ? 'Estrías Guilloché Solares'
+                          : 'Bisel Pulido Espejo'}
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Resolución CNC</span>
+                    <span className="font-medium text-white">25,920 Polígonos (±0.03 mm)</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Gema Principal</span>
+                    <span className="font-medium text-white">{gem.name} ({carats.toFixed(2)} Carats)</span>
+                  </div>
+                  <div>
+                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Corte / Talla</span>
+                    <span className="font-medium text-white">{cut.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Metal Noble</span>
+                    <span className="font-medium text-white">{metal.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Aro & Acabado</span>
+                    <span className="font-medium text-white">{band.name} ({finish.label})</span>
+                  </div>
+                  {jewelryType === 'ring' && (
+                    <div>
+                      <span className="text-white/45 block text-[10px] uppercase tracking-wider">Medida / Talla</span>
+                      <span className="font-medium text-accent">Talla {ringSize} (US / Colombia)</span>
+                    </div>
+                  )}
+                  {engraving && (
+                    <div>
+                      <span className="text-white/45 block text-[10px] uppercase tracking-wider">Grabado Láser</span>
+                      <span className="font-medium text-white">&ldquo;{engraving}&rdquo;</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="border-t border-white/10 pt-4 flex items-baseline justify-between">
                 <span className="text-xs uppercase tracking-wider text-white/50">Valor Estimado</span>

@@ -6,7 +6,10 @@ export interface BespokeConfig {
   metal: MetalKey;
   gemstone: GemstoneKey;
   carats: number;
-  ringSize: number;
+  /** Talla de dedo (solo anillos y sellos) */
+  ringSize?: number;
+  /** Medida legible según la pieza: talla, contorno de muñeca o largo de cadena */
+  sizeLabel?: string;
   engravingText?: string;
   previewThumbnailUrl?: string;
 }

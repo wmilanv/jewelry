@@ -264,6 +264,21 @@ function SettingIcon({ style }: { style: SettingStyleKey }) {
   );
 }
 
+/** Monturas que realmente cambian el modelo 3D de cada tipo de joya */
+function allowedSettingsFor(type: JewelryTypeKey): SettingStyleKey[] {
+  if (type === 'ring') return DEFAULT_SETTINGS.map((s) => s.id);
+  if (type === 'necklace') return ['solitaire', 'halo', 'vintage'];
+  if (type === 'earrings') return ['solitaire', 'halo'];
+  return [];
+}
+
+/** Perfiles de aro que realmente cambian el modelo 3D de cada tipo de joya */
+function allowedBandsFor(type: JewelryTypeKey): BandStyleKey[] {
+  if (type === 'ring') return DEFAULT_BANDS.map((b) => b.id);
+  if (type === 'bracelet') return ['plain', 'pave'];
+  return [];
+}
+
 /** Convierte imagen subida a dataURL redimensionada */
 async function readImageDataUrl(file: File, max = 512): Promise<string> {
   const bmp = await createImageBitmap(file);
@@ -312,6 +327,10 @@ function CustomizerInner() {
   const [reliefContrast, setReliefContrast] = useState<number>(1.2);
   const [reliefSmooth, setReliefSmooth] = useState<number>(0.8);
   const [reliefBorder, setReliefBorder] = useState<'milgrain' | 'guilloche' | 'smooth'>('milgrain');
+  const [reliefGemEnabled, setReliefGemEnabled] = useState<boolean>(true);
+  const [reliefGemPosition, setReliefGemPosition] = useState<'crown' | 'center'>('crown');
+  const [reliefRingShape, setReliefRingShape] = useState<'cushion' | 'oval' | 'round'>('cushion');
+  const [reliefRingBand, setReliefRingBand] = useState<'plain' | 'pave' | 'fluted'>('plain');
   const [showAdvancedRelief, setShowAdvancedRelief] = useState<boolean>(true);
   const [showCloudAi, setShowCloudAi] = useState<boolean>(false);
   const [customGlbUrl, setCustomGlbUrl] = useState<string>('');
@@ -333,7 +352,10 @@ function CustomizerInner() {
 
   const [carats, setCarats] = useState(1.5);
   const [ringSize, setRingSize] = useState(6.5);
+  const [braceletSize, setBraceletSize] = useState(17);
+  const [chainLength, setChainLength] = useState(45);
   const [engraving, setEngraving] = useState('');
+  const [engravingFont, setEngravingFont] = useState<'cursive' | 'roman' | 'modern'>('cursive');
   const [lighting, setLighting] = useState<LightingMood>('studio');
   const [autoRotate, setAutoRotate] = useState(true);
   const [added, setAdded] = useState(false);
@@ -377,18 +399,130 @@ function CustomizerInner() {
     shownBand.id === 'pave' ||
     shownBand.id === 'channel';
 
+  const isRelief = jewelryType === 'ai-relief';
+  const isSignet = isRelief && reliefMount === 'signet-ring';
+  /** Anillos (clásicos o sello 2D→3D) usan talla de dedo */
+  const isRingLike = jewelryType === 'ring' || isSignet;
+  const isBracelet = jewelryType === 'bracelet';
+  /** Collares, medallones y dijes cuelgan de una cadena con largo a medida */
+  const isChainPiece =
+    jewelryType === 'necklace' || (isRelief && (reliefMount === 'medallion' || reliefMount === 'cutout-charm'));
+  /** Dónde queda grabado el texto del cliente, según la pieza */
+  const engravingPlace =
+    isRingLike
+      ? 'interior del aro'
+      : isBracelet
+      ? 'cara interna del brazalete'
+      : jewelryType === 'necklace' || (isRelief && reliefMount === 'medallion')
+      ? 'reverso del dije'
+      : isRelief
+      ? 'reverso del dije'
+      : null;
+  const sizeLabel = isRingLike
+    ? `Talla ${ringSize} (US / Colombia)`
+    : isBracelet
+    ? `Contorno de muñeca ${braceletSize} cm`
+    : isChainPiece
+    ? `Cadena de ${chainLength} cm`
+    : '';
+  const sizeTitle = isRingLike ? 'Medida del Anillo' : isBracelet ? 'Contorno de Muñeca' : isChainPiece ? 'Largo de Cadena' : '';
+  /** Piezas sin gema real: malla .GLB propia o escultura 2D→3D con "sin gema" */
+  const noGem = jewelryType === 'glb-custom' || (isRelief && !reliefGemEnabled);
+  /** Los aretes llevan una gema por oreja */
+  const gemCount = jewelryType === 'earrings' ? 2 : 1;
+  /** Qué opciones del constructor afectan realmente a cada tipo de joya */
+  const usesSetting = jewelryType === 'ring' || jewelryType === 'necklace' || jewelryType === 'earrings';
+  const usesBand = jewelryType === 'ring' || jewelryType === 'bracelet';
+  const visibleSettings = settingStyles.filter((s) => allowedSettingsFor(jewelryType).includes(s.id));
+  const visibleBands = bandStyles.filter((b) => allowedBandsFor(jewelryType).includes(b.id));
+
+  const reliefBandCost =
+    isSignet && reliefRingBand === 'pave' ? 450000 : isSignet && reliefRingBand === 'fluted' ? 180000 : 0;
+
   const total = Math.max(
     0,
     c.basePrice +
       jTypeObj.priceDelta +
-      shownSetting.priceDelta +
-      shownCut.priceDelta +
-      shownBand.priceDelta +
+      (usesSetting ? shownSetting.priceDelta : 0) +
+      (noGem ? 0 : shownCut.priceDelta * gemCount) +
+      (usesBand ? shownBand.priceDelta : 0) +
+      reliefBandCost +
       shownMetal.priceDelta +
       finish.delta +
-      Math.round(shownGem.pricePerCt * carats),
+      (noGem ? 0 : Math.round(shownGem.pricePerCt * carats * gemCount)),
   );
+  /* ---------- Resumen único de especificaciones (ficha, certificado, WhatsApp y pedido) ---------- */
+  const shapeLabel =
+    reliefRingShape === 'cushion' ? 'Cojín Real' : reliefRingShape === 'oval' ? 'Óvalo Nobiliario' : 'Redondo Imperial';
+  const ringBandLabel =
+    reliefRingBand === 'pave'
+      ? 'Hombros con Pavé (8 diamantes)'
+      : reliefRingBand === 'fluted'
+      ? 'Acanalado Vintage Art Déco'
+      : 'Aro Macizo Liso Pulido';
+  const borderLabel =
+    reliefBorder === 'milgrain'
+      ? 'Corona Milgrain (Perlé 56 cuentas)'
+      : reliefBorder === 'guilloche'
+      ? 'Estrías Guilloché Solares'
+      : 'Bisel Pulido Espejo';
+  const techniqueLabel =
+    reliefStyle === 'intaglio'
+      ? 'Sello Inciso (Intaglio)'
+      : reliefStyle === 'engraving'
+      ? 'Grabado Numismático'
+      : 'Relieve Positivo (Camafeo)';
+  const fontLabel =
+    engravingFont === 'cursive' ? 'Italienne Cursive' : engravingFont === 'roman' ? 'Romaine Impériale' : 'Moderne Art Déco';
 
+  const pieceName = isRelief
+    ? reliefMount === 'signet-ring'
+      ? `Anillo de Sello · Meseta ${shapeLabel}`
+      : reliefMount === 'cutout-charm'
+      ? 'Dije Silueta Calado'
+      : 'Medallón Talismán'
+    : jewelryType === 'glb-custom'
+    ? 'Modelo 3D propio (.GLB)'
+    : usesSetting
+    ? `${jTypeObj.label} · ${setting.name}`
+    : jTypeObj.label;
+
+  const gemSpec = noGem
+    ? jewelryType === 'glb-custom'
+      ? 'Según el modelo 3D cargado'
+      : 'Oro macizo puro esculpido (sin gema)'
+    : `${gem.name} · ${carats.toFixed(2)} ct${gemCount > 1 ? ' c/u (par)' : ''} · Talla ${cut.name}${
+        isRelief ? ` · engaste en ${reliefGemPosition === 'crown' ? 'corona superior' : 'centro del blasón'}` : ''
+      }`;
+
+  const bandSpec = isSignet
+    ? ringBandLabel
+    : usesBand
+    ? band.name
+    : '';
+
+  const specRows: { label: string; value: string; accent?: boolean }[] = [
+    { label: 'Pieza', value: pieceName },
+    ...(isRelief ? [{ label: 'Técnica de relieve', value: `${techniqueLabel} · ${reliefDepth.toFixed(2)} mm`, accent: true }] : []),
+    ...(isRelief && reliefMount === 'medallion' ? [{ label: 'Marco perimetral', value: borderLabel }] : []),
+    ...(bandSpec ? [{ label: isSignet ? 'Hombros y aro' : 'Perfil del aro', value: bandSpec }] : []),
+    { label: 'Gema', value: gemSpec },
+    ...(!noGem && hasSideGems && !isRelief ? [{ label: 'Gemas de acento', value: sideGem.name }] : []),
+    { label: 'Metal noble', value: `${metal.name} · ${finish.label}` },
+    ...(sizeLabel ? [{ label: sizeTitle, value: sizeLabel, accent: true }] : []),
+    ...(engraving
+      ? [
+          {
+            label: 'Grabado láser 3D',
+            value: engravingPlace
+              ? `“${engraving}” · ${fontLabel} · ${engravingPlace}`
+              : `“${engraving}” · ${fontLabel}`,
+            accent: true,
+          },
+        ]
+      : []),
+    ...(isRelief ? [{ label: 'Resolución CNC', value: '25,920 facetas · ±0.03 mm' }] : []),
+  ];
   const applyPreset = (preset: {
     type?: JewelryTypeKey;
     setting: SettingStyleKey;
@@ -459,31 +593,60 @@ function CustomizerInner() {
     }
   };
 
+  const whatsappText = () =>
+    [
+      `*Atelier Vendôme · Solicitud de Cita & Ficha Bespoke 3D*`,
+      ...specRows.map((r) => `• ${r.label}: ${r.value}`),
+      `• Cotización estimada: ${formatMoney(total, settings)}`,
+      '',
+      'Hola, he diseñado esta pieza en su Atelier 3D y deseo coordinar su manufactura y prototipo en cera perdida con un maestro joyero.',
+    ].join('\n');
+
   const add = () => {
     const labelParts = [
       jTypeObj.label,
-      jewelryType === 'ring' ? `${setting.name} · Aro ${band.name}` : '',
-      jewelryType === 'ai-relief' ? `Escultura 2D→3D (${reliefMount})` : '',
-      `Talla ${cut.name}`,
-      metal.name,
-      `${gem.name} (${carats.toFixed(2)} ct)`,
-      hasSideGems ? `Acentos: ${sideGem.name}` : '',
-      finish.label,
-      jewelryType === 'ring' ? `Medida ${ringSize}` : '',
-      engraving ? `Grabado: "${engraving}"` : '',
+      pieceName,
+      bandSpec,
+      gemSpec,
+      `${metal.name} · ${finish.label}`,
+      sizeLabel,
+      engraving ? `Grabado: "${engraving}" (${fontLabel})` : '',
     ].filter(Boolean);
 
     addItem({
-      id: `bespoke|${jewelryType}|${setting.id}|${cut.id}|${band.id}|${metal.id}|${gem.id}|${sideGem.id}|${carats}|${ringSize}|${finish.id}|${engraving}`,
+      id: [
+        'bespoke',
+        jewelryType,
+        setting.id,
+        cut.id,
+        band.id,
+        metal.id,
+        gem.id,
+        sideGem.id,
+        carats,
+        sizeLabel,
+        finish.id,
+        engraving,
+        engravingFont,
+        reliefMount,
+        reliefRingShape,
+        reliefRingBand,
+        reliefGemEnabled,
+        reliefGemPosition,
+        reliefBorder,
+        reliefStyle,
+        reliefDepth,
+        activePresetId || 'custom-image',
+      ].join('|'),
       productId: 'bespoke',
-      title: `${jTypeObj.label} Bespoke · ${gem.name}`,
+      title: `${jTypeObj.label} Bespoke · ${noGem ? metal.name : gem.name}`,
       variantLabel: labelParts.join(' · '),
       price: total,
       quantity: 1,
-      image: reliefImageUrl || '',
+      image: isRelief ? reliefImageUrl || '' : '',
       art: {
         kind:
-          jewelryType === 'necklace'
+          jewelryType === 'necklace' || (isRelief && reliefMount !== 'signet-ring')
             ? 'necklace'
             : jewelryType === 'earrings'
               ? 'earrings'
@@ -495,23 +658,23 @@ function CustomizerInner() {
       isBespoke: true,
       bespokeConfig: {
         jewelryType: jTypeObj.label,
-        settingStyle: setting.name,
-        cutShape: cut.name,
-        bandStyle: band.name,
+        settingStyle: pieceName,
+        cutShape: noGem ? 'Sin gema' : cut.name,
+        bandStyle: bandSpec || undefined,
         metal: metal.name,
-        gemstone: gem.name,
-        sideGemstone: hasSideGems ? sideGem.name : undefined,
-        carats,
-        ringSize,
+        gemstone: noGem ? gemSpec : `${gem.name}${gemCount > 1 ? ' (par)' : ''}`,
+        sideGemstone: !noGem && hasSideGems && !isRelief ? sideGem.name : undefined,
+        carats: noGem ? 0 : carats,
+        ringSize: isRingLike ? ringSize : undefined,
+        sizeLabel: sizeLabel || undefined,
         finish: finish.label,
-        engravingText: engraving || undefined,
-        customReferenceImage: reliefImageUrl || undefined,
+        engravingText: engraving ? `"${engraving}" · ${fontLabel}${engravingPlace ? ` · ${engravingPlace}` : ''}` : undefined,
+        customReferenceImage: isRelief ? reliefImageUrl || undefined : undefined,
       },
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);
   };
-
   return (
     <div className="h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col lg:flex-row bg-[#09090c] text-[#f4efe6]">
       {/* ==================== VISOR 3D ==================== */}
@@ -542,6 +705,12 @@ function CustomizerInner() {
           reliefContrast={reliefContrast}
           reliefSmooth={reliefSmooth}
           reliefBorder={reliefBorder}
+          reliefGemEnabled={reliefGemEnabled}
+          reliefGemPosition={reliefGemPosition}
+          reliefRingBand={reliefRingBand}
+          reliefRingShape={reliefRingShape}
+          engraving={engraving}
+          engravingFont={engravingFont}
           customGlbUrl={customGlbUrl}
           overrideGlbMaterial={overrideGlbMaterial}
         />
@@ -707,6 +876,10 @@ function CustomizerInner() {
                       key={jt.id}
                       onClick={() => {
                         setJewelryType(jt.id);
+                        const okSettings = allowedSettingsFor(jt.id);
+                        const okBands = allowedBandsFor(jt.id);
+                        if (okSettings.length && !okSettings.includes(settingId)) setSettingId(okSettings[0]);
+                        if (okBands.length && !okBands.includes(bandId)) setBandId(okBands[0]);
                         if (jt.id === 'ai-relief' || jt.id === 'glb-custom') setStep('ia2d3d');
                       }}
                       className={`p-3 rounded-2xl border text-left transition ${
@@ -722,171 +895,473 @@ function CustomizerInner() {
                 </div>
               </div>
 
-              {/* 12 Siluetas de montura */}
-              <div>
-                <span className="label">
-                  Silueta de Montura (12 Arquitecturas): <b className="text-white normal-case">{shownSetting.name}</b>
-                </span>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {settingStyles.map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => setSettingId(s.id)}
-                      onMouseEnter={() => setHoverSetting(s.id)}
-                      onMouseLeave={() => setHoverSetting('')}
-                      className={`flex items-start gap-2.5 p-3 rounded-2xl border text-left transition ${
-                        setting.id === s.id
-                          ? 'border-accent bg-accent/10 text-white'
-                          : 'border-white/10 text-white/75 hover:border-white/30'
-                      }`}
-                    >
-                      <SettingIcon style={s.id} />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs font-medium leading-tight">{s.name}</div>
-                        <div className="text-[10px] text-white/50 leading-snug mt-0.5">{s.subtitle}</div>
-                        {s.priceDelta !== 0 && (
-                          <div className="text-[10px] text-accent mt-1">+{formatMoney(s.priceDelta, settings)}</div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Si es Joya 2D→3D, muestra la arquitectura de montura correspondiente */}
+              {jewelryType === 'ai-relief' ? (
+                <div className="space-y-4">
+                  <div>
+                    <span className="label">Montura de Joyería donde esculpir</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {(
+                        [
+                          { id: 'medallion', label: 'Medallón Collar', sub: 'Pendentif Talismán con Diamante' },
+                          { id: 'signet-ring', label: 'Anillo de Sello', sub: 'Sortija Chevalière Biselada' },
+                          { id: 'cutout-charm', label: 'Dije Silueta', sub: 'Troquel Esculpido sin Fondo' },
+                        ] as const
+                      ).map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => setReliefMount(m.id)}
+                          className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
+                            reliefMount === m.id
+                              ? 'border-accent bg-accent/15 ring-1 ring-accent/50 text-white'
+                              : 'border-white/10 hover:border-white/25 text-white/70 bg-black/20'
+                          }`}
+                        >
+                          <span className="text-xs font-semibold block">{m.label}</span>
+                          <span className="text-[10px] text-white/50 block mt-1 leading-tight">{m.sub}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* 8 Perfiles del aro */}
-              <div>
-                <span className="label">
-                  Arquitectura del Aro (8 Perfiles): <b className="text-white normal-case">{shownBand.name}</b>
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {bandStyles.map((b) => (
-                    <button
-                      key={b.id}
-                      onClick={() => setBandId(b.id)}
-                      onMouseEnter={() => setHoverBand(b.id)}
-                      onMouseLeave={() => setHoverBand('')}
-                      className={`flex flex-col justify-between p-3.5 rounded-2xl border text-left transition ${
-                        band.id === b.id
-                          ? 'border-accent bg-accent/10 text-white'
-                          : 'border-white/10 text-white/75 hover:border-white/30'
-                      }`}
-                    >
+                  {reliefMount === 'signet-ring' && (
+                    <>
                       <div>
-                        <div className="text-xs font-medium">{b.name}</div>
-                        <div className="text-[10px] text-white/50 mt-0.5">{b.subtitle}</div>
+                        <span className="label">Silueta de la Meseta del Sello (Chevalière)</span>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(
+                            [
+                              { id: 'cushion', label: 'Cojín Real', sub: 'Cuadrado esquinas suaves' },
+                              { id: 'oval', label: 'Óvalo Nobiliario', sub: 'Silueta clásica de blasón' },
+                              { id: 'round', label: 'Redondo Imperial', sub: 'Círculo puro de gala' },
+                            ] as const
+                          ).map((sh) => (
+                            <button
+                              key={sh.id}
+                              type="button"
+                              onClick={() => setReliefRingShape(sh.id)}
+                              className={`p-2.5 rounded-xl border text-left transition ${
+                                reliefRingShape === sh.id
+                                  ? 'border-accent bg-accent/15 ring-1 ring-accent/50 text-white'
+                                  : 'border-white/10 text-white/65 hover:border-white/25 bg-black/20'
+                              }`}
+                            >
+                              <span className="text-xs font-medium block">{sh.label}</span>
+                              <span className="text-[10px] text-white/45 block mt-0.5 leading-tight">{sh.sub}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                      <span className="text-[10px] text-accent mt-2">
-                        {b.priceDelta === 0 ? 'Incluido' : `+${formatMoney(b.priceDelta, settings)}`}
-                      </span>
-                    </button>
-                  ))}
+
+                      <div>
+                        <span className="label">Arquitectura de los Hombros y Aro</span>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(
+                            [
+                              { id: 'plain', label: 'Aro Macizo Liso', sub: 'Oro macizo pulido a espejo' },
+                              { id: 'pave', label: 'Hombros con Pavé', sub: '8 diamantes micro-engastados' },
+                              { id: 'fluted', label: 'Acanalado Vintage', sub: 'Ranuras estriadas Art Déco' },
+                            ] as const
+                          ).map((b) => (
+                            <button
+                              key={b.id}
+                              type="button"
+                              onClick={() => setReliefRingBand(b.id)}
+                              className={`p-2.5 rounded-xl border text-left transition ${
+                                reliefRingBand === b.id
+                                  ? 'border-accent bg-accent/15 ring-1 ring-accent/50 text-white'
+                                  : 'border-white/10 text-white/65 hover:border-white/25 bg-black/20'
+                              }`}
+                            >
+                              <span className="text-xs font-medium block">{b.label}</span>
+                              <span className="text-[10px] text-white/45 block mt-0.5 leading-tight">{b.sub}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {reliefMount === 'medallion' && (
+                    <div>
+                      <span className="label">Marco Perimetral del Medallón</span>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(
+                          [
+                            { id: 'milgrain', label: 'Corona Milgrain', sub: '56 micro-esferas perlé' },
+                            { id: 'guilloche', label: 'Estrías Guilloché', sub: 'Rayos solares facetados' },
+                            { id: 'smooth', label: 'Bisel Pulido Espejo', sub: 'Moldura clásica pura' },
+                          ] as const
+                        ).map((b) => (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => setReliefBorder(b.id)}
+                            className={`p-2.5 rounded-xl border text-left transition ${
+                              reliefBorder === b.id
+                                ? 'border-accent bg-accent/15 ring-1 ring-accent/50 text-white'
+                                : 'border-white/10 text-white/65 hover:border-white/25 bg-black/20'
+                            }`}
+                          >
+                            <span className="text-xs font-medium block">{b.label}</span>
+                            <span className="text-[10px] text-white/45 block mt-0.5 leading-tight">{b.sub}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
+              ) : (
+                <>
+                  {/* Siluetas de montura (según tipo de joya) */}
+                  {visibleSettings.length > 0 && (
+                  <div>
+                    <span className="label">
+                      Silueta de Montura ({visibleSettings.length} Arquitecturas): <b className="text-white normal-case">{shownSetting.name}</b>
+                    </span>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {visibleSettings.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => setSettingId(s.id)}
+                          onMouseEnter={() => setHoverSetting(s.id)}
+                          onMouseLeave={() => setHoverSetting('')}
+                          className={`flex items-start gap-2.5 p-3 rounded-2xl border text-left transition ${
+                            setting.id === s.id
+                              ? 'border-accent bg-accent/10 text-white'
+                              : 'border-white/10 text-white/75 hover:border-white/30'
+                          }`}
+                        >
+                          <SettingIcon style={s.id} />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-medium leading-tight">{s.name}</div>
+                            <div className="text-[10px] text-white/50 leading-snug mt-0.5">{s.subtitle}</div>
+                            {s.priceDelta !== 0 && (
+                              <div className="text-[10px] text-accent mt-1">+{formatMoney(s.priceDelta, settings)}</div>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  )}
+
+                  {/* Perfiles del aro (según tipo de joya) */}
+                  {visibleBands.length > 0 && (
+                  <div>
+                    <span className="label">
+                      Arquitectura del Aro ({visibleBands.length} Perfiles): <b className="text-white normal-case">{shownBand.name}</b>
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {visibleBands.map((b) => (
+                        <button
+                          key={b.id}
+                          onClick={() => setBandId(b.id)}
+                          onMouseEnter={() => setHoverBand(b.id)}
+                          onMouseLeave={() => setHoverBand('')}
+                          className={`flex flex-col justify-between p-3.5 rounded-2xl border text-left transition ${
+                            band.id === b.id
+                              ? 'border-accent bg-accent/10 text-white'
+                              : 'border-white/10 text-white/75 hover:border-white/30'
+                          }`}
+                        >
+                          <div>
+                            <div className="text-xs font-medium">{b.name}</div>
+                            <div className="text-[10px] text-white/50 mt-0.5">{b.subtitle}</div>
+                          </div>
+                          <span className="text-[10px] text-accent mt-2">
+                            {b.priceDelta === 0 ? 'Incluido' : `+${formatMoney(b.priceDelta, settings)}`}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  )}
+                  {visibleSettings.length === 0 && visibleBands.length === 0 && (
+                    <p className="text-xs text-white/55 leading-relaxed rounded-2xl border border-white/10 bg-black/25 p-4">
+                      Este tipo de joya no tiene montura ni aro configurables aquí. Ajusta gema, metal, acabado y firma en los siguientes pasos.
+                    </p>
+                  )}
+                  {jewelryType === 'bracelet' && (
+                    <p className="text-[11px] text-white/50 leading-relaxed">
+                      El brazalete admite aro liso o con pavé de diamantes. Define el contorno de muñeca en el paso 5.
+                    </p>
+                  )}
+                </>
+              )}
             </>
           )}
 
           {step === 'gema' && (
             <>
-              {/* 10 Tallas / Cortes de la gema */}
-              <div>
-                <span className="label">
-                  Talla de la Gema (10 Cortes): <b className="text-white normal-case">{shownCut.name}</b>
-                </span>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {cutShapes.map((x) => (
-                    <button
-                      key={x.id}
-                      onClick={() => setCutId(x.id)}
-                      onMouseEnter={() => setHoverCut(x.id)}
-                      onMouseLeave={() => setHoverCut('')}
-                      className={`flex items-center gap-3 p-3 rounded-2xl border text-left transition ${
-                        cut.id === x.id
-                          ? 'border-accent bg-accent/10 text-white'
-                          : 'border-white/10 text-white/75 hover:border-white/30'
-                      }`}
-                    >
-                      <CutIcon cut={x.id} />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs font-medium truncate">{x.name}</div>
-                        <div className="text-[10px] text-white/50 truncate">{x.subtitle}</div>
-                        {x.priceDelta > 0 && (
-                          <div className="text-[10px] text-accent">+{formatMoney(x.priceDelta, settings)}</div>
-                        )}
+              {jewelryType === 'ai-relief' ? (
+                <div className="space-y-6">
+                  {/* Banner de Control de Engaste de Gema para la Joya Esculpida */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-accent/20 via-accent/10 to-transparent border border-accent/40 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] uppercase tracking-[0.22em] text-accent font-semibold block">
+                          Haute Joaillerie · Engaste a Mano
+                        </span>
+                        <h3 className="text-sm font-semibold text-white">
+                          {reliefGemEnabled ? 'Gema Preciosa Engastada en la Creación' : 'Joya en Metal Macizo Puro (Sin Gema)'}
+                        </h3>
                       </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 10 Piedras preciosas centrales */}
-              <div>
-                <span className="label">
-                  Gema Central: <b className="text-white normal-case">{shownGem.name}</b>
-                </span>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {c.gems.map((g) => (
-                    <button
-                      key={g.id}
-                      onClick={() => setGemId(g.id)}
-                      onMouseEnter={() => setHoverGem(g.id)}
-                      onMouseLeave={() => setHoverGem('')}
-                      className={`flex items-center gap-3 p-3 rounded-2xl border text-xs text-left transition ${
-                        gem.id === g.id ? 'border-accent bg-accent/10' : 'border-white/10 hover:border-white/30'
-                      }`}
-                    >
-                      <span
-                        className="w-5 h-5 rotate-45 rounded-sm border border-white/30 shrink-0 shadow-inner"
-                        style={{ background: g.color }}
-                      />
-                      <span className="flex-1 min-w-0">
-                        <span className="block truncate font-medium">{g.name}</span>
-                        <em className="block not-italic text-[10px] text-white/50">
-                          {formatMoney(g.pricePerCt, settings)} / ct
-                        </em>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Quilataje */}
-              <div>
-                <div className="flex justify-between items-baseline">
-                  <span className="label">Peso de la Gema Principal</span>
-                  <b className="text-accent text-sm">{carats.toFixed(2)} ct</b>
-                </div>
-                <input
-                  type="range"
-                  min={c.minCarats}
-                  max={c.maxCarats}
-                  step={0.05}
-                  value={carats}
-                  onChange={(e) => setCarats(Number(e.target.value))}
-                  className="w-full accent-[rgb(var(--accent))]"
-                />
-              </div>
-
-              {/* Gemas secundarias / acento */}
-              {hasSideGems && (
-                <div>
-                  <span className="label">
-                    Gemas Secundarias / Acento: <b className="text-white normal-case">{sideGem.name}</b>
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {c.gems.map((g) => (
                       <button
-                        key={g.id}
-                        onClick={() => setSideGemId(g.id)}
-                        className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full border text-xs transition ${
-                          sideGem.id === g.id ? 'border-accent bg-accent/15 text-white' : 'border-white/10 text-white/70'
+                        type="button"
+                        onClick={() => setReliefGemEnabled(!reliefGemEnabled)}
+                        className={`text-[10px] uppercase tracking-wider px-3.5 py-1.5 rounded-full border transition font-medium ${
+                          reliefGemEnabled
+                            ? 'border-accent bg-accent text-on-accent shadow-md shadow-accent/20'
+                            : 'border-white/20 text-white/70 hover:border-white/50 bg-black/40'
                         }`}
                       >
-                        <span className="w-3 h-3 rounded-full border border-white/30" style={{ background: g.color }} />
-                        {g.name}
+                        {reliefGemEnabled ? '✓ Con Gema' : '+ Añadir Gema'}
                       </button>
-                    ))}
+                    </div>
+                    <p className="text-[11px] text-white/60 leading-relaxed">
+                      {reliefGemEnabled
+                        ? 'Un chatón o bisel de oro macizo abraza la gema en la posición elegida sin interferir con las facetas talladas del relieve.'
+                        : 'Tu pieza se elaborará en oro macizo o platino 100% puro con el relieve escultórico CNC sin piedras añadidas.'}
+                    </p>
                   </div>
+
+                  {reliefGemEnabled && (
+                    <>
+                      {/* Posición del Engaste */}
+                      <div>
+                        <span className="label">Ubicación del Engaste en la Montura</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setReliefGemPosition('crown')}
+                            className={`p-3 rounded-2xl border text-left transition ${
+                              reliefGemPosition === 'crown'
+                                ? 'border-accent bg-accent/15 ring-1 ring-accent/50 text-white'
+                                : 'border-white/10 text-white/65 hover:border-white/25 bg-black/20'
+                            }`}
+                          >
+                            <span className="text-xs font-semibold block">
+                              {reliefMount === 'signet-ring' ? 'Corona Superior / Meseta' : reliefMount === 'cutout-charm' ? 'Argolla Superior' : 'Cúspide Pendentif'}
+                            </span>
+                            <span className="text-[10px] text-white/45 block mt-0.5 leading-tight">
+                              {reliefMount === 'signet-ring' ? 'Cima de la chevalière' : 'Vértice de suspensión'}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setReliefGemPosition('center')}
+                            className={`p-3 rounded-2xl border text-left transition ${
+                              reliefGemPosition === 'center'
+                                ? 'border-accent bg-accent/15 ring-1 ring-accent/50 text-white'
+                                : 'border-white/10 text-white/65 hover:border-white/25 bg-black/20'
+                            }`}
+                          >
+                            <span className="text-xs font-semibold block">Centro del Blasón / Medallón</span>
+                            <span className="text-[10px] text-white/45 block mt-0.5 leading-tight">
+                              Punto focal incrustado en el corazón
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Selector de Piedra Preciosa Central */}
+                      <div>
+                        <span className="label">
+                          Gema Noble: <b className="text-white normal-case">{shownGem.name}</b>
+                        </span>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {c.gems.map((g) => (
+                            <button
+                              key={g.id}
+                              onClick={() => setGemId(g.id)}
+                              onMouseEnter={() => setHoverGem(g.id)}
+                              onMouseLeave={() => setHoverGem('')}
+                              className={`flex items-center gap-3 p-3 rounded-2xl border text-xs text-left transition ${
+                                gem.id === g.id ? 'border-accent bg-accent/10' : 'border-white/10 hover:border-white/30'
+                              }`}
+                            >
+                              <span
+                                className="w-5 h-5 rotate-45 rounded-sm border border-white/30 shrink-0 shadow-inner"
+                                style={{ background: g.color }}
+                              />
+                              <span className="flex-1 min-w-0">
+                                <span className="block truncate font-medium">{g.name}</span>
+                                <em className="block not-italic text-[10px] text-white/50">
+                                  {formatMoney(g.pricePerCt, settings)} / ct
+                                </em>
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Talla / Corte de la Gema */}
+                      <div>
+                        <span className="label">
+                          Talla / Corte de la Gema: <b className="text-white normal-case">{shownCut.name}</b>
+                        </span>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {cutShapes.map((x) => (
+                            <button
+                              key={x.id}
+                              onClick={() => setCutId(x.id)}
+                              onMouseEnter={() => setHoverCut(x.id)}
+                              onMouseLeave={() => setHoverCut('')}
+                              className={`flex items-center gap-3 p-3 rounded-2xl border text-left transition ${
+                                cut.id === x.id
+                                  ? 'border-accent bg-accent/10 text-white'
+                                  : 'border-white/10 text-white/75 hover:border-white/30'
+                              }`}
+                            >
+                              <CutIcon cut={x.id} />
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-medium truncate">{x.name}</div>
+                                <div className="text-[10px] text-white/50 truncate">{x.subtitle}</div>
+                                {x.priceDelta > 0 && (
+                                  <div className="text-[10px] text-accent">+{formatMoney(x.priceDelta, settings)}</div>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Quilataje Slider */}
+                      <div>
+                        <div className="flex justify-between items-baseline">
+                          <span className="label">Peso de la Gema Engastada</span>
+                          <b className="text-accent text-sm">{carats.toFixed(2)} ct</b>
+                        </div>
+                        <input
+                          type="range"
+                          min={0.15}
+                          max={2.0}
+                          step={0.05}
+                          value={carats}
+                          onChange={(e) => setCarats(Number(e.target.value))}
+                          className="w-full accent-[rgb(var(--accent))]"
+                        />
+                        <div className="flex justify-between text-[10px] text-white/40 mt-1">
+                          <span>0.15 ct (Acento sutil)</span>
+                          <span>0.50 ct (Equilibrado)</span>
+                          <span>2.00 ct (Solitario de gala)</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
+              ) : (
+                <>
+                  {jewelryType === 'glb-custom' && (
+                    <p className="text-xs text-white/55 leading-relaxed rounded-2xl border border-white/10 bg-black/25 p-4">
+                      Tu modelo 3D propio no incluye gemas configurables: no se cobra gema ni talla. Metal, acabado y firma sí se aplican.
+                    </p>
+                  )}
+                  {/* 10 Tallas / Cortes de la gema */}
+                  <div>
+                    <span className="label">
+                      Talla de la Gema (10 Cortes): <b className="text-white normal-case">{shownCut.name}</b>
+                    </span>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {cutShapes.map((x) => (
+                        <button
+                          key={x.id}
+                          onClick={() => setCutId(x.id)}
+                          onMouseEnter={() => setHoverCut(x.id)}
+                          onMouseLeave={() => setHoverCut('')}
+                          className={`flex items-center gap-3 p-3 rounded-2xl border text-left transition ${
+                            cut.id === x.id
+                              ? 'border-accent bg-accent/10 text-white'
+                              : 'border-white/10 text-white/75 hover:border-white/30'
+                          }`}
+                        >
+                          <CutIcon cut={x.id} />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-medium truncate">{x.name}</div>
+                            <div className="text-[10px] text-white/50 truncate">{x.subtitle}</div>
+                            {x.priceDelta > 0 && (
+                              <div className="text-[10px] text-accent">+{formatMoney(x.priceDelta, settings)}</div>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 10 Piedras preciosas centrales */}
+                  <div>
+                    <span className="label">
+                      Gema Central: <b className="text-white normal-case">{shownGem.name}</b>
+                    </span>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {c.gems.map((g) => (
+                        <button
+                          key={g.id}
+                          onClick={() => setGemId(g.id)}
+                          onMouseEnter={() => setHoverGem(g.id)}
+                          onMouseLeave={() => setHoverGem('')}
+                          className={`flex items-center gap-3 p-3 rounded-2xl border text-xs text-left transition ${
+                            gem.id === g.id ? 'border-accent bg-accent/10' : 'border-white/10 hover:border-white/30'
+                          }`}
+                        >
+                          <span
+                            className="w-5 h-5 rotate-45 rounded-sm border border-white/30 shrink-0 shadow-inner"
+                            style={{ background: g.color }}
+                          />
+                          <span className="flex-1 min-w-0">
+                            <span className="block truncate font-medium">{g.name}</span>
+                            <em className="block not-italic text-[10px] text-white/50">
+                              {formatMoney(g.pricePerCt, settings)} / ct
+                            </em>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quilataje */}
+                  <div>
+                    <div className="flex justify-between items-baseline">
+                      <span className="label">Peso de la Gema Principal</span>
+                      <b className="text-accent text-sm">{carats.toFixed(2)} ct</b>
+                    </div>
+                    <input
+                      type="range"
+                      min={c.minCarats}
+                      max={c.maxCarats}
+                      step={0.05}
+                      value={carats}
+                      onChange={(e) => setCarats(Number(e.target.value))}
+                      className="w-full accent-[rgb(var(--accent))]"
+                    />
+                  </div>
+
+                  {/* Gemas secundarias / acento */}
+                  {hasSideGems && (
+                    <div>
+                      <span className="label">
+                        Gemas Secundarias / Acento: <b className="text-white normal-case">{sideGem.name}</b>
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {c.gems.map((g) => (
+                          <button
+                            key={g.id}
+                            onClick={() => setSideGemId(g.id)}
+                            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full border text-xs transition ${
+                              sideGem.id === g.id ? 'border-accent bg-accent/15 text-white' : 'border-white/10 text-white/70'
+                            }`}
+                          >
+                            <span className="w-3 h-3 rounded-full border border-white/30" style={{ background: g.color }} />
+                            {g.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
@@ -1083,8 +1558,8 @@ function CustomizerInner() {
               </div>
 
               {/* 2. Montura de Joyería */}
-              <div className="space-y-2">
-                <span className="label">2. Montura de Joyería</span>
+              <div className="space-y-3">
+                <span className="label">2. Montura de Joyería donde Esculpir</span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {(
                     [
@@ -1111,11 +1586,199 @@ function CustomizerInner() {
                     </button>
                   ))}
                 </div>
+
+                {/* Opciones Específicas del Anillo de Sello (Chevalière) */}
+                {reliefMount === 'signet-ring' && (
+                  <div className="space-y-3 p-3.5 rounded-2xl border border-white/10 bg-black/25">
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider text-accent font-semibold block mb-1.5">
+                        Silueta de la Meseta del Sello
+                      </span>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(
+                          [
+                            { id: 'cushion', label: 'Cojín Real', sub: 'Borde redondeado suave' },
+                            { id: 'oval', label: 'Óvalo Nobiliario', sub: 'Clásico escudo heráldico' },
+                            { id: 'round', label: 'Redondo Imperial', sub: 'Círculo puro de gala' },
+                          ] as const
+                        ).map((sh) => (
+                          <button
+                            key={sh.id}
+                            type="button"
+                            onClick={() => setReliefRingShape(sh.id)}
+                            className={`p-2.5 rounded-xl border text-left transition ${
+                              reliefRingShape === sh.id
+                                ? 'border-accent bg-accent/15 ring-1 ring-accent/50 text-white'
+                                : 'border-white/10 text-white/65 hover:border-white/25 bg-black/20'
+                            }`}
+                          >
+                            <span className="text-xs font-medium block">{sh.label}</span>
+                            <span className="text-[9px] text-white/45 block mt-0.5 leading-tight">{sh.sub}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider text-accent font-semibold block mb-1.5">
+                        Arquitectura de Hombros y Aro
+                      </span>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(
+                          [
+                            { id: 'plain', label: 'Aro Macizo Liso', sub: 'Oro macizo pulido' },
+                            { id: 'pave', label: 'Hombros con Pavé', sub: '8 diamantes brillantes' },
+                            { id: 'fluted', label: 'Acanalado Vintage', sub: 'Estriado Art Déco' },
+                          ] as const
+                        ).map((b) => (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => setReliefRingBand(b.id)}
+                            className={`p-2.5 rounded-xl border text-left transition ${
+                              reliefRingBand === b.id
+                                ? 'border-accent bg-accent/15 ring-1 ring-accent/50 text-white'
+                                : 'border-white/10 text-white/65 hover:border-white/25 bg-black/20'
+                            }`}
+                          >
+                            <span className="text-xs font-medium block">{b.label}</span>
+                            <span className="text-[9px] text-white/45 block mt-0.5 leading-tight">{b.sub}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* 3. Técnica de Escultura */}
+              {/* 3. Engaste de Gema Preciosa */}
+              <div className="space-y-3 p-3.5 rounded-2xl border border-white/10 bg-black/25">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="label !mb-0">3. Engaste de Gema Preciosa</span>
+                    <span className="text-[10px] text-white/50 block">Chatón de oro macizo engastado a mano</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReliefGemEnabled(!reliefGemEnabled)}
+                    className={`text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-full border transition ${
+                      reliefGemEnabled
+                        ? 'border-accent bg-accent text-on-accent font-semibold shadow-md shadow-accent/20'
+                        : 'border-white/20 text-white/70 hover:border-white/40 bg-black/40'
+                    }`}
+                  >
+                    {reliefGemEnabled ? '✓ Con Gema' : '+ Añadir Gema'}
+                  </button>
+                </div>
+
+                {reliefGemEnabled && (
+                  <div className="space-y-3 pt-1 border-t border-white/10">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setReliefGemPosition('crown')}
+                        className={`p-2.5 rounded-xl border text-left transition ${
+                          reliefGemPosition === 'crown'
+                            ? 'border-accent bg-accent/15 ring-1 ring-accent/50 text-white'
+                            : 'border-white/10 text-white/65 hover:border-white/25 bg-black/20'
+                        }`}
+                      >
+                        <span className="text-xs font-medium block">
+                          {reliefMount === 'signet-ring' ? 'Corona Superior' : reliefMount === 'cutout-charm' ? 'Argolla Superior' : 'Cúspide Pendentif'}
+                        </span>
+                        <span className="text-[9px] text-white/45 block mt-0.5 leading-tight">
+                          Gala en la cúspide
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReliefGemPosition('center')}
+                        className={`p-2.5 rounded-xl border text-left transition ${
+                          reliefGemPosition === 'center'
+                            ? 'border-accent bg-accent/15 ring-1 ring-accent/50 text-white'
+                            : 'border-white/10 text-white/65 hover:border-white/25 bg-black/20'
+                        }`}
+                      >
+                        <span className="text-xs font-medium block">Centro del Blasón</span>
+                        <span className="text-[9px] text-white/45 block mt-0.5 leading-tight">
+                          Incrustado en el corazón
+                        </span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2">
+                      {c.gems.slice(0, 4).map((g) => (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onClick={() => setGemId(g.id)}
+                          className={`p-2 rounded-xl border text-center transition flex flex-col items-center gap-1.5 ${
+                            gem.id === g.id
+                              ? 'border-accent bg-accent/20 ring-1 ring-accent/50 text-white'
+                              : 'border-white/10 text-white/65 hover:border-white/25 bg-black/30'
+                          }`}
+                        >
+                          <span
+                            className="w-4 h-4 rotate-45 rounded-sm border border-white/30 shadow-inner"
+                            style={{ background: g.color }}
+                          />
+                          <span className="text-[10px] font-medium truncate w-full">{g.name.split(' ')[0]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Caligrafía Láser 3D & Dedicatoria en Vivo */}
+              <div className="space-y-3 p-3.5 rounded-2xl border border-white/10 bg-black/25">
+                <div className="flex items-center justify-between">
+                  <span className="label !mb-0 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-accent" /> 4. Firma & Grabado Láser Interior (3D)
+                  </span>
+                  <span className="text-[9px] uppercase tracking-wider text-accent font-medium">En Vivo en Visor</span>
+                </div>
+                <input
+                  type="text"
+                  maxLength={28}
+                  value={engraving}
+                  onChange={(e) => setEngraving(e.target.value)}
+                  placeholder="Ej: A & M · 2026 · Amor Eterno"
+                  className="input !bg-black/50 !border-white/15 !text-white text-xs w-full"
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-white/50">Tipografía:</span>
+                  <div className="flex gap-1.5">
+                    {(
+                      [
+                        { id: 'cursive', label: 'Cursiva' },
+                        { id: 'roman', label: 'Romana' },
+                        { id: 'modern', label: 'Art Déco' },
+                      ] as const
+                    ).map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setEngravingFont(f.id)}
+                        className={`px-2.5 py-1 rounded-lg border text-[10px] transition ${
+                          engravingFont === f.id
+                            ? 'border-accent bg-accent/20 text-accent font-semibold'
+                            : 'border-white/10 text-white/60 hover:border-white/30 bg-black/30'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[10px] text-white/45 leading-tight">
+                  Se talla en el {engravingPlace}, junto al punzón de garantía 18K/750. Gira la pieza en el visor para verlo.
+                </p>
+              </div>
+
+              {/* 5. Técnica de Escultura */}
               <div className="space-y-2">
-                <span className="label">3. Técnica de Escultura de Taller</span>
+                <span className="label">5. Técnica de Escultura de Taller</span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {(
                     [
@@ -1144,10 +1807,10 @@ function CustomizerInner() {
                 </div>
               </div>
 
-              {/* 4. Marco Perimetral (si es Medallón) */}
+              {/* 6. Marco Perimetral (si es Medallón) */}
               {reliefMount === 'medallion' && (
                 <div className="space-y-2">
-                  <span className="label">4. Marco Perimetral del Medallón</span>
+                  <span className="label">6. Marco Perimetral del Medallón</span>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {(
                       [
@@ -1410,64 +2073,171 @@ function CustomizerInner() {
 
           {step === 'firma' && (
             <>
-              <div>
-                <div className="flex justify-between items-baseline mb-2">
-                  <span className="label">Talla Estándar (US / Colombia)</span>
-                  <b className="text-accent text-sm">Talla {ringSize}</b>
-                </div>
-                <div className="grid grid-cols-5 gap-2">
-                  {[4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9].map((sz) => (
-                    <button
-                      key={sz}
-                      onClick={() => setRingSize(sz)}
-                      className={`py-2.5 rounded-xl border text-xs transition ${
-                        ringSize === sz
-                          ? 'border-accent bg-accent text-on-accent font-semibold'
-                          : 'border-white/10 text-white/70 hover:border-white/30'
-                      }`}
-                    >
-                      {sz}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {c.engraving && (
+              {/* Medida según la pieza: talla de dedo, muñeca o largo de cadena */}
+              {isRingLike && (
                 <div>
-                  <span className="label">Caligrafía Láser Interior (Cortesía de la Maison)</span>
+                  <div className="flex justify-between items-baseline mb-2">
+                    <span className="label">Medida del Anillo (Estándar US / Colombia)</span>
+                    <b className="text-accent text-sm">Talla {ringSize}</b>
+                  </div>
+                  <div className="grid grid-cols-5 gap-2">
+                    {[4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11].map((sz) => (
+                      <button
+                        key={sz}
+                        type="button"
+                        onClick={() => setRingSize(sz)}
+                        className={`py-2 rounded-xl border text-xs transition ${
+                          ringSize === sz
+                            ? 'border-accent bg-accent text-on-accent font-semibold shadow-md shadow-accent/20'
+                            : 'border-white/10 text-white/70 hover:border-white/30 bg-black/25'
+                        }`}
+                      >
+                        {sz}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {isBracelet && (
+                <div>
+                  <div className="flex justify-between items-baseline mb-2">
+                    <span className="label">Contorno de Muñeca</span>
+                    <b className="text-accent text-sm">{braceletSize} cm</b>
+                  </div>
+                  <div className="grid grid-cols-5 gap-2">
+                    {[15, 16, 17, 18, 19, 20, 21].map((cm) => (
+                      <button
+                        key={cm}
+                        type="button"
+                        onClick={() => setBraceletSize(cm)}
+                        className={`py-2 rounded-xl border text-xs transition ${
+                          braceletSize === cm
+                            ? 'border-accent bg-accent text-on-accent font-semibold shadow-md shadow-accent/20'
+                            : 'border-white/10 text-white/70 hover:border-white/30 bg-black/25'
+                        }`}
+                      >
+                        {cm} cm
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-white/45 mt-1.5">Mide la muñeca con una cinta y suma 1 cm de holgura.</p>
+                </div>
+              )}
+
+              {isChainPiece && (
+                <div>
+                  <div className="flex justify-between items-baseline mb-2">
+                    <span className="label">Largo de la Cadena</span>
+                    <b className="text-accent text-sm">{chainLength} cm</b>
+                  </div>
+                  <div className="grid grid-cols-5 gap-2">
+                    {[40, 42, 45, 50, 55, 60, 70].map((cm) => (
+                      <button
+                        key={cm}
+                        type="button"
+                        onClick={() => setChainLength(cm)}
+                        className={`py-2 rounded-xl border text-xs transition ${
+                          chainLength === cm
+                            ? 'border-accent bg-accent text-on-accent font-semibold shadow-md shadow-accent/20'
+                            : 'border-white/10 text-white/70 hover:border-white/30 bg-black/25'
+                        }`}
+                      >
+                        {cm} cm
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-white/45 mt-1.5">
+                    40 cm gargantilla · 45 cm princesa (la más elegida) · 50–60 cm matinée · 70 cm ópera.
+                  </p>
+                </div>
+              )}
+
+              {/* Firma y grabado láser: solo donde la pieza lo muestra y lo puede tallar */}
+              {c.engraving && engravingPlace && (
+                <div className="space-y-3 p-4 rounded-2xl border border-white/10 bg-black/30">
+                  <div className="flex items-center justify-between">
+                    <span className="label !mb-0 flex items-center gap-1.5 text-accent">
+                      <Sparkles className="w-3.5 h-3.5" /> Firma y Grabado Láser 3D
+                    </span>
+                    <span className="text-[10px] text-white/45">{engraving.length}/28 caracteres</span>
+                  </div>
+
                   <input
                     value={engraving}
                     maxLength={28}
                     onChange={(e) => setEngraving(e.target.value)}
                     placeholder="Ej: A & M · 24.10.2026 · Amor Eterno"
-                    className="input !bg-black/40 !border-white/15 !text-white"
+                    aria-label="Texto del grabado"
+                    className="input !bg-black/50 !border-white/15 !text-white text-xs w-full"
                   />
-                  <p className="text-[10px] text-white/45 mt-1 text-right">{engraving.length}/28 caracteres</p>
+
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-white/50 block mb-1.5">
+                      Estilo Tipográfico del Grabado
+                    </span>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(
+                        [
+                          { id: 'cursive', label: 'Italienne Cursive', sub: 'Caligrafía romántica' },
+                          { id: 'roman', label: 'Romaine Impériale', sub: 'Serif clásico capital' },
+                          { id: 'modern', label: 'Moderne Art Déco', sub: 'Geométrico sans-serif' },
+                        ] as const
+                      ).map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => setEngravingFont(f.id)}
+                          className={`p-2 rounded-xl border text-left transition ${
+                            engravingFont === f.id
+                              ? 'border-accent bg-accent/20 text-accent ring-1 ring-accent/50'
+                              : 'border-white/10 text-white/60 hover:border-white/25 bg-black/20'
+                          }`}
+                        >
+                          <span className="text-xs font-medium block">{f.label}</span>
+                          <span className="text-[9px] text-white/40 block mt-0.5 leading-tight">{f.sub}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-accent/10 border border-accent/25 text-[11px] text-white/70 leading-relaxed flex items-start gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-accent shrink-0 mt-0.5" />
+                    <span>
+                      Lo que escribas se talla en el <b className="text-white">{engravingPlace}</b>, junto al punzón 18K / 750 de la Maison.
+                      Gira la pieza en el visor para verlo tal como se fabricará.
+                    </span>
+                  </div>
                 </div>
               )}
+              {c.engraving && !engravingPlace && (
+                <p className="text-[11px] text-white/50 leading-relaxed rounded-2xl border border-white/10 bg-black/25 p-4">
+                  Los aretes no llevan grabado personalizado: cada par recibe el punzón 18K / 750 de la Maison.
+                </p>
+              )}
 
-              {/* Resumen de la ficha Bespoke */}
+              {/* Certificado de configuración: exactamente lo que se mandará a tallar */}
               <div className="rounded-2xl border border-white/10 bg-black/35 p-4 space-y-2 text-xs">
                 <div className="flex items-center justify-between mb-1">
                   <span className="eyebrow">Certificado de Configuración</span>
                   <button
+                    type="button"
                     onClick={() => setShowDossier(true)}
                     className="text-[10px] uppercase tracking-wider text-accent hover:underline flex items-center gap-1 font-medium"
                   >
                     <FileText className="w-3.5 h-3.5" /> Ver Ficha Oficial
                   </button>
                 </div>
-                <div className="flex justify-between"><span className="text-white/50">Tipo de Joya</span><span>{jTypeObj.label}</span></div>
-                <div className="flex justify-between"><span className="text-white/50">Montura</span><span>{setting.name}</span></div>
-                <div className="flex justify-between"><span className="text-white/50">Talla Gema</span><span>{cut.name} ({carats.toFixed(2)} ct)</span></div>
-                <div className="flex justify-between"><span className="text-white/50">Piedra Principal</span><span>{gem.name}</span></div>
-                <div className="flex justify-between"><span className="text-white/50">Aro & Metal</span><span>{band.name} · {metal.name}</span></div>
-                <div className="flex justify-between"><span className="text-white/50">Acabado</span><span>{finish.label}</span></div>
+                {specRows.map((r) => (
+                  <div key={r.label} className="flex justify-between gap-4">
+                    <span className="text-white/50 shrink-0">{r.label}</span>
+                    <span className={`text-right ${r.accent ? 'text-accent' : ''}`}>{r.value}</span>
+                  </div>
+                ))}
               </div>
             </>
           )}
         </div>
-
         {/* Footer de precio y acción con soporte para safe-area móvil */}
         <div className="border-t border-white/10 p-3.5 sm:p-5 space-y-2.5 sm:space-y-3 bg-black/80 backdrop-blur-md pb-[max(0.85rem,env(safe-area-inset-bottom))] shrink-0">
           <div className="flex justify-between items-baseline">
@@ -1499,23 +2269,9 @@ function CustomizerInner() {
             </button>
             <button
               onClick={() => {
-                const text = [
-                  `*Atelier Vendôme · Solicitud de Cita & Ficha Bespoke 3D*`,
-                  `• Pieza: ${jTypeObj.label} (${setting.name})`,
-                  `• Talla de Gema: ${cut.name} (${carats.toFixed(2)} ct)`,
-                  `• Piedra Central: ${gem.name}`,
-                  `• Aro & Metal: ${band.name} en ${metal.name}`,
-                  `• Acabado: ${finish.label}`,
-                  jewelryType === 'ring' ? `• Talla Anillo: ${ringSize} (US / Colombia)` : '',
-                  engraving ? `• Caligrafía Interior: "${engraving}"` : '',
-                  `• Cotización Estimada: ${formatMoney(total, settings)}`,
-                  '',
-                  'Hola, he diseñado esta pieza en su Atelier 3D y deseo coordinar su manufactura con un gemólogo de la Maison.',
-                ].filter(Boolean).join('\n');
                 const wa = settings.contact.whatsapp.replace(/\D/g, '');
-                window.open(`https://wa.me/${wa}?text=${encodeURIComponent(text)}`, '_blank');
-              }}
-              className="py-2.5 px-3 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 text-[10px] uppercase tracking-wider transition flex items-center justify-center gap-1.5 font-medium"
+                window.open(`https://wa.me/${wa}?text=${encodeURIComponent(whatsappText())}`, '_blank');
+              }}              className="py-2.5 px-3 rounded-full border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 text-[10px] uppercase tracking-wider transition flex items-center justify-center gap-1.5 font-medium"
             >
               <MessageCircle className="w-3.5 h-3.5" /> Cotizar con VIP
             </button>
@@ -1541,108 +2297,33 @@ function CustomizerInner() {
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <span className="font-display uppercase text-xl text-accent">
-                  {jewelryType === 'ai-relief' ? 'Escultura 2D → 3D Bespoke' : setting.name}
-                </span>
-                <span className="text-[10px] uppercase tracking-widest text-white/50">{jTypeObj.label}</span>
+              <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+                <span className="font-display uppercase text-xl text-accent leading-tight">{pieceName}</span>
+                <span className="text-[10px] uppercase tracking-widest text-white/50 shrink-0">{jTypeObj.label}</span>
               </div>
 
-              {jewelryType === 'ai-relief' ? (
-                <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Montura de Joya</span>
-                    <span className="font-medium text-white">
-                      {reliefMount === 'signet-ring'
-                        ? 'Anillo de Sello (Chevalière)'
-                        : reliefMount === 'cutout-charm'
-                        ? 'Dije Silueta Calado'
-                        : 'Medallón Talismán (Collar)'}
-                    </span>
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                {specRows.map((r) => (
+                  <div key={r.label} className={r.label === 'Grabado láser 3D' || r.label === 'Gema' ? 'col-span-2' : ''}>
+                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">{r.label}</span>
+                    <span className={`font-medium ${r.accent ? 'text-accent' : 'text-white'}`}>{r.value}</span>
                   </div>
-                  <div>
-                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Técnica de Relieve</span>
-                    <span className="font-medium text-accent">
-                      {reliefStyle === 'intaglio'
-                        ? 'Sello Inciso (Intaglio)'
-                        : reliefStyle === 'engraving'
-                        ? 'Grabado Numismático'
-                        : 'Relieve Positivo (Camafeo)'}{' '}
-                      ({reliefDepth.toFixed(2)} mm)
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Metal Noble</span>
-                    <span className="font-medium text-white">{metal.name}</span>
-                  </div>
-                  <div>
-                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Acabado Superficial</span>
-                    <span className="font-medium text-white">{finish.label}</span>
-                  </div>
-                  {reliefMount === 'medallion' && (
-                    <div>
-                      <span className="text-white/45 block text-[10px] uppercase tracking-wider">Marco Perimetral</span>
-                      <span className="font-medium text-white">
-                        {reliefBorder === 'milgrain'
-                          ? 'Corona Milgrain (Perlé 56 cuentas)'
-                          : reliefBorder === 'guilloche'
-                          ? 'Estrías Guilloché Solares'
-                          : 'Bisel Pulido Espejo'}
-                      </span>
-                    </div>
-                  )}
-                  <div>
-                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Resolución CNC</span>
-                    <span className="font-medium text-white">25,920 Polígonos (±0.03 mm)</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Gema Principal</span>
-                    <span className="font-medium text-white">{gem.name} ({carats.toFixed(2)} Carats)</span>
-                  </div>
-                  <div>
-                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Corte / Talla</span>
-                    <span className="font-medium text-white">{cut.name}</span>
-                  </div>
-                  <div>
-                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Metal Noble</span>
-                    <span className="font-medium text-white">{metal.name}</span>
-                  </div>
-                  <div>
-                    <span className="text-white/45 block text-[10px] uppercase tracking-wider">Aro & Acabado</span>
-                    <span className="font-medium text-white">{band.name} ({finish.label})</span>
-                  </div>
-                  {jewelryType === 'ring' && (
-                    <div>
-                      <span className="text-white/45 block text-[10px] uppercase tracking-wider">Medida / Talla</span>
-                      <span className="font-medium text-accent">Talla {ringSize} (US / Colombia)</span>
-                    </div>
-                  )}
-                  {engraving && (
-                    <div>
-                      <span className="text-white/45 block text-[10px] uppercase tracking-wider">Grabado Láser</span>
-                      <span className="font-medium text-white">&ldquo;{engraving}&rdquo;</span>
-                    </div>
-                  )}
-                </div>
-              )}
+                ))}
+              </div>
 
               <div className="border-t border-white/10 pt-4 flex items-baseline justify-between">
                 <span className="text-xs uppercase tracking-wider text-white/50">Valor Estimado</span>
                 <span className="font-display text-2xl text-accent">{formatMoney(total, settings)}</span>
               </div>
             </div>
-
             <p className="text-[11px] text-white/50 leading-relaxed text-center">
-              Esta ficha técnica es válida por 30 días para cotización y reserva en nuestro salón de Bogotá o mediante cita privada virtual con un gemólogo.
+              Esta ficha técnica es válida por 30 días para manufactura por cera perdida y microfusión en nuestro salón de Bogotá o mediante cita privada virtual con un maestro orfebre.
             </p>
 
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => {
-                  const text = `Atelier Vendôme - Ficha Bespoke: ${setting.name}, ${cut.name} ${carats.toFixed(2)}ct, ${gem.name}, ${metal.name}, ${band.name}. Estimación: ${formatMoney(total, settings)}`;
+                  const text = whatsappText().replace(/\*/g, '');
                   navigator.clipboard.writeText(text);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);

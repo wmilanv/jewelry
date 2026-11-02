@@ -37,6 +37,18 @@ export interface JewelrySceneProps {
   reliefSmooth?: number;
   /** Borde decorativo para el medallón ('milgrain' perlé | 'guilloche' solar | 'smooth' pulido) */
   reliefBorder?: 'milgrain' | 'guilloche' | 'smooth';
+  /** Si true, engasta gema preciosa en la montura (en la cima/centro del medallón o meseta/hombros del sello) */
+  reliefGemEnabled?: boolean;
+  /** Posición de la gema de acento ('crown' corona superior | 'center' centro del relieve) */
+  reliefGemPosition?: 'crown' | 'center';
+  /** Estilo de hombros para el anillo de sello ('plain' macizo | 'pave' con diamantes | 'fluted' acanalado) */
+  reliefRingBand?: 'plain' | 'pave' | 'fluted';
+  /** Silueta de la meseta del sello ('cushion' cojín | 'oval' ovalada | 'round' redonda) */
+  reliefRingShape?: 'cushion' | 'oval' | 'round';
+  /** Texto para grabado láser 3D interior del anillo o reverso del medallón */
+  engraving?: string;
+  /** Estilo tipográfico del grabado ('cursive' | 'roman' | 'modern') */
+  engravingFont?: 'cursive' | 'roman' | 'modern';
   /** URL de modelo .GLB (generado con Meshy AI / Tripo3D o subido por el usuario) */
   customGlbUrl?: string;
   /** Si es true, aplica el material de oro/platino elegido al modelo GLB */
@@ -146,6 +158,320 @@ function GemMesh({
   );
 }
 
+/** Dibuja el texto ajustándolo para que nunca exceda el ancho disponible. */
+function fitText(ctx: CanvasRenderingContext2D, text: string, family: string, weight: string, italic: boolean, basePx: number, maxW: number) {
+  let px = basePx;
+  for (let i = 0; i < 24; i++) {
+    ctx.font = `${italic ? 'italic ' : ''}${weight} ${px}px ${family}`;
+    if (ctx.measureText(text).width <= maxW || px <= 10) break;
+    px -= 2;
+  }
+  return px;
+}
+
+const ENGRAVING_FONTS: Record<'cursive' | 'roman' | 'modern', { family: string; weight: string; italic: boolean }> = {
+  cursive: { family: '"Italiana", "Georgia", serif', weight: '500', italic: true },
+  roman: { family: '"Cinzel", "Times New Roman", serif', weight: '700', italic: false },
+  modern: { family: '"Inter", "Helvetica Neue", sans-serif', weight: '600', italic: false },
+};
+
+/** Radio interior visible del aro según el perfil, para apoyar el grabado justo sobre el metal */
+function getRingInnerRadius(R: number, band: BandStyleKey, setting?: SettingStyleKey): number {
+  if (setting === 'tension') return R - 0.148;
+  switch (band) {
+    case 'knife':
+      return R - 0.141;
+    case 'split':
+      return R - 0.091;
+    case 'twisted':
+      return R - 0.106;
+    case 'chevron':
+      return R - 0.118;
+    case 'beaded':
+      return R - 0.138;
+    case 'channel':
+      return R - 0.123;
+    case 'pave':
+      return R - 0.125;
+    case 'plain':
+    default:
+      return R - 0.128;
+  }
+}
+
+/* ======================================================================= */
+/*  GRABADO LÁSER 3D INTERIOR DEL ANILLO (TEXTURA Y RELIEVE MICRO-CNC)     */
+/*  El cilindro se alinea con el eje del aro (Z) y la textura mantiene la  */
+/*  proporción real (circunferencia × ancho) para que el texto no se estire */
+/* ======================================================================= */
+function InnerRingLaserEngraving({
+  text,
+  font = 'cursive',
+  radius = 1.01,
+  width = 0.16,
+  metalColor,
+  arc = Math.PI * 2,
+  thetaStart = 0,
+}: {
+  text?: string;
+  font?: 'cursive' | 'roman' | 'modern';
+  radius?: number;
+  width?: number;
+  metalColor: string;
+  /** Longitud angular cubierta por el grabado (brazalete abierto = arco parcial) */
+  arc?: number;
+  thetaStart?: number;
+}) {
+  const [maps, setMaps] = useState<{ color: THREE.CanvasTexture; bump: THREE.CanvasTexture } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let created: { color: THREE.CanvasTexture; bump: THREE.CanvasTexture } | null = null;
+
+    const draw = () => {
+      if (cancelled) return;
+      const W = 4096;
+      const H = Math.max(48, Math.round((W * width) / (arc * radius)));
+      const color = document.createElement('canvas');
+      const bump = document.createElement('canvas');
+      color.width = bump.width = W;
+      color.height = bump.height = H;
+      const cc = color.getContext('2d');
+      const bc = bump.getContext('2d');
+      if (!cc || !bc) return;
+
+      cc.fillStyle = metalColor;
+      cc.fillRect(0, 0, W, H);
+      bc.fillStyle = '#ffffff';
+      bc.fillRect(0, 0, W, H);
+
+      const hallmark = '⚜  VENDÔME · 18K / 750  ⚜';
+      const clientText = text?.trim() ? `“ ${text.trim()} ”` : '⚜  PIÈCE UNIQUE BESPOKE  ⚜';
+      const f = ENGRAVING_FONTS[font];
+
+      const drawLine = (label: string, cx: number, isClient: boolean) => {
+        for (const g of [cc, bc]) {
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+        }
+        const family = isClient ? f.family : ENGRAVING_FONTS.roman.family;
+        const weight = isClient ? f.weight : '700';
+        const italic = isClient ? f.italic : false;
+        const px = fitText(cc, label, family, weight, italic, Math.round(H * 0.56), W * 0.4);
+        const fontStr = `${italic ? 'italic ' : ''}${weight} ${px}px ${family}`;
+        cc.font = fontStr;
+        bc.font = fontStr;
+        const cy = H / 2 + 1;
+        // Hueco láser: tono ámbar oscuro + luz fina en el borde inferior (bisel)
+        cc.fillStyle = 'rgba(255,248,225,0.55)';
+        cc.fillText(label, cx, cy + 1.5);
+        cc.fillStyle = '#2b1b0b';
+        cc.fillText(label, cx, cy);
+        bc.fillStyle = '#000000';
+        bc.fillText(label, cx, cy);
+      };
+
+      drawLine(hallmark, W * 0.25, false);
+      drawLine(clientText, W * 0.75, true);
+
+      const colorTex = new THREE.CanvasTexture(color);
+      const bumpTex = new THREE.CanvasTexture(bump);
+      for (const t of [colorTex, bumpTex]) {
+        t.colorSpace = t === colorTex ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+        t.wrapS = THREE.RepeatWrapping;
+        // Se ve desde el interior: se invierte U para que el texto no salga en espejo
+        t.repeat.x = -1;
+        t.anisotropy = 8;
+        t.needsUpdate = true;
+      }
+      created = { color: colorTex, bump: bumpTex };
+      setMaps(created);
+    };
+
+    // Espera a que las tipografías del sitio estén listas para no dibujar con la fuente de reserva
+    if (typeof document !== 'undefined' && (document as any).fonts?.load) {
+      Promise.all([
+        (document as any).fonts.load('italic 40px "Italiana"'),
+        (document as any).fonts.load('700 40px "Cinzel"'),
+        (document as any).fonts.load('600 40px "Inter"'),
+      ])
+        .catch(() => undefined)
+        .then(draw);
+    } else {
+      draw();
+    }
+
+    return () => {
+      cancelled = true;
+      if (created) {
+        created.color.dispose();
+        created.bump.dispose();
+      }
+    };
+  }, [text, font, metalColor, radius, width, arc]);
+
+  if (!maps) return null;
+
+  return (
+    <mesh rotation={[Math.PI / 2, 0, 0]}>
+      <cylinderGeometry args={[radius, radius, width, 128, 1, true, thetaStart, arc]} />
+      <meshPhysicalMaterial
+        color="#ffffff"
+        metalness={0.92}
+        roughness={0.3}
+        map={maps.color}
+        bumpMap={maps.bump}
+        bumpScale={2.5}
+        envMapIntensity={1.6}
+        side={THREE.BackSide}
+      />
+    </mesh>
+  );
+}
+
+/* ======================================================================= */
+/*  GRABADO LÁSER 3D REVERSO (MEDALLÓN, DIJE Y COLLAR) — DIPLOMA + DEDICATORIA */
+/* ======================================================================= */
+function MedallionBackLaserEngraving({
+  text,
+  font = 'cursive',
+  metalColor,
+  radius = 0.9,
+  position = [0, 0, -0.068],
+  rotation = [0, Math.PI, 0],
+}: {
+  text?: string;
+  font?: 'cursive' | 'roman' | 'modern';
+  metalColor: string;
+  radius?: number;
+  position?: [number, number, number];
+  rotation?: [number, number, number];
+}) {
+  const [maps, setMaps] = useState<{ color: THREE.CanvasTexture; bump: THREE.CanvasTexture } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let created: { color: THREE.CanvasTexture; bump: THREE.CanvasTexture } | null = null;
+
+    const draw = () => {
+      if (cancelled) return;
+      const S = 1024;
+      const color = document.createElement('canvas');
+      const bump = document.createElement('canvas');
+      color.width = color.height = bump.width = bump.height = S;
+      const cc = color.getContext('2d');
+      const bc = bump.getContext('2d');
+      if (!cc || !bc) return;
+
+      cc.fillStyle = metalColor;
+      cc.fillRect(0, 0, S, S);
+      bc.fillStyle = '#ffffff';
+      bc.fillRect(0, 0, S, S);
+
+      const f = ENGRAVING_FONTS[font];
+      const cx = S / 2;
+
+      // Dibuja una línea tallada (tono ámbar + luz de bisel) y su hueco en el mapa de relieve
+      const carve = (label: string, y: number, maxW: number, basePx: number, family: string, weight: string, italic: boolean) => {
+        const px = fitText(cc, label, family, weight, italic, basePx, maxW);
+        const fontStr = `${italic ? 'italic ' : ''}${weight} ${px}px ${family}`;
+        for (const g of [cc, bc]) {
+          g.font = fontStr;
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+        }
+        cc.fillStyle = 'rgba(255,248,225,0.55)';
+        cc.fillText(label, cx, y + 2);
+        cc.fillStyle = '#2b1b0b';
+        cc.fillText(label, cx, y);
+        bc.fillStyle = '#000000';
+        bc.fillText(label, cx, y);
+      };
+
+      // Doble orla guilloché concéntrica
+      for (const [r, lw] of [
+        [478, 3],
+        [456, 1.6],
+        [262, 1.6],
+        [248, 1],
+      ] as const) {
+        for (const g of [cc, bc]) {
+          g.strokeStyle = g === cc ? '#2b1b0b' : '#000000';
+          g.lineWidth = lw;
+          g.beginPath();
+          g.arc(cx, cx, r, 0, Math.PI * 2);
+          g.stroke();
+        }
+      }
+
+      carve('· ATELIER VENDÔME · PLACE VENDÔME ·', 118, 560, 40, ENGRAVING_FONTS.roman.family, '700', false);
+      carve('· CERTIFIÉ OR 18K / PLATINE 950 ·', S - 118, 560, 40, ENGRAVING_FONTS.roman.family, '700', false);
+      carve('⚜', cx - 118, 120, 64, ENGRAVING_FONTS.roman.family, '700', false);
+      carve('⚜', cx + 118, 120, 64, ENGRAVING_FONTS.roman.family, '700', false);
+
+      const custom = text?.trim() || 'PIÈCE UNIQUE BESPOKE N° 1926';
+      if (custom.length > 16) {
+        const mid = Math.floor(custom.length / 2);
+        const left = custom.lastIndexOf(' ', mid);
+        const right = custom.indexOf(' ', mid);
+        const splitIdx = left > 0 ? left : right > 0 ? right : mid;
+        carve(custom.substring(0, splitIdx).trim(), cx - 34, 440, 88, f.family, f.weight, f.italic);
+        carve(custom.substring(splitIdx).trim(), cx + 44, 440, 88, f.family, f.weight, f.italic);
+      } else {
+        carve(custom, cx, 440, 96, f.family, f.weight, f.italic);
+      }
+
+      const colorTex = new THREE.CanvasTexture(color);
+      const bumpTex = new THREE.CanvasTexture(bump);
+      colorTex.colorSpace = THREE.SRGBColorSpace;
+      for (const t of [colorTex, bumpTex]) {
+        t.anisotropy = 8;
+        t.needsUpdate = true;
+      }
+      created = { color: colorTex, bump: bumpTex };
+      setMaps(created);
+    };
+
+    if (typeof document !== 'undefined' && (document as any).fonts?.load) {
+      Promise.all([
+        (document as any).fonts.load('italic 40px "Italiana"'),
+        (document as any).fonts.load('700 40px "Cinzel"'),
+        (document as any).fonts.load('600 40px "Inter"'),
+      ])
+        .catch(() => undefined)
+        .then(draw);
+    } else {
+      draw();
+    }
+
+    return () => {
+      cancelled = true;
+      if (created) {
+        created.color.dispose();
+        created.bump.dispose();
+      }
+    };
+  }, [text, font, metalColor]);
+
+  if (!maps) return null;
+
+  return (
+    <mesh position={position} rotation={rotation}>
+      <circleGeometry args={[radius, 96]} />
+      <meshPhysicalMaterial
+        color="#ffffff"
+        metalness={0.92}
+        roughness={0.3}
+        map={maps.color}
+        bumpMap={maps.bump}
+        bumpScale={2.2}
+        envMapIntensity={1.6}
+      />
+    </mesh>
+  );
+}
+
+
 /* ======================================================================= */
 /*  MOTOR 2D → 3D INSTANTÁNEO HAUTE JOAILLERIE (ESCULTOR EN VIVO SIN API)  */
 /* ======================================================================= */
@@ -158,9 +484,17 @@ function ImageReliefSculpture({
   reliefContrast = 1.2,
   reliefSmooth = 0.8,
   reliefBorder = 'milgrain',
+  reliefGemEnabled = true,
+  reliefGemPosition = 'crown',
+  reliefRingBand = 'plain',
+  reliefRingShape = 'cushion',
+  carats = 1.5,
+  engraving = '',
+  engravingFont = 'cursive',
   metalColor,
   metalMat,
   gemMat,
+  sideGemMat,
   cutShape = 'round',
   finish = 'polished',
   autoRotate = true,
@@ -173,9 +507,17 @@ function ImageReliefSculpture({
   reliefContrast?: number;
   reliefSmooth?: number;
   reliefBorder?: 'milgrain' | 'guilloche' | 'smooth';
+  reliefGemEnabled?: boolean;
+  reliefGemPosition?: 'crown' | 'center';
+  reliefRingBand?: 'plain' | 'pave' | 'fluted';
+  reliefRingShape?: 'cushion' | 'oval' | 'round';
+  carats?: number;
+  engraving?: string;
+  engravingFont?: 'cursive' | 'roman' | 'modern';
   metalColor: string;
   metalMat: React.ReactNode;
   gemMat: React.ReactNode;
+  sideGemMat?: React.ReactNode;
   cutShape?: CutShapeKey;
   finish?: 'polished' | 'satin' | 'hammered';
   autoRotate?: boolean;
@@ -189,7 +531,8 @@ function ImageReliefSculpture({
       if (autoRotate !== false) {
         group.current.rotation.y += delta * 0.28;
       }
-      group.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.55) * 0.05 + 0.12;
+      const baseTiltX = mount === 'signet-ring' ? 0.42 : 0.12;
+      group.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.55) * 0.05 + baseTiltX;
     }
   });
 
@@ -255,6 +598,20 @@ function ImageReliefSculpture({
       const h = grid + 1;
 
       for (let i = 0; i < pos.count; i++) {
+        let vx = pos.getX(i);
+        let vy = pos.getY(i);
+        const rawDist = Math.hypot(vx, vy);
+
+        // Clamping radial matemático para eliminar esquinas cuadradas e impurezas en monturas circulares
+        const maxR = 0.73;
+        if (mount !== 'cutout-charm' && rawDist > maxR) {
+          const ratio = maxR / rawDist;
+          vx *= ratio;
+          vy *= ratio;
+          pos.setX(i, vx);
+          pos.setY(i, vy);
+        }
+
         const ix = i % w;
         const iy = Math.floor(i / w);
         const u = ix / (w - 1);
@@ -283,30 +640,28 @@ function ImageReliefSculpture({
         let lum = 1 / (1 + Math.exp(-contrastK * 6 * (rawLum - 0.5)));
         lum = Math.max(0, Math.min(1, (lum - 0.05) / 0.9));
 
-        // Máscara perimetral suave
-        const vx = pos.getX(i);
-        const vy = pos.getY(i);
+        // Máscara perimetral suave que cae a cero con precisión en el borde
         const dist = Math.hypot(vx, vy);
         const mask =
           mount === 'cutout-charm'
             ? (alpha > 0.3 ? 1 : 0)
-            : dist <= 0.70
+            : dist <= 0.64
             ? 1
-            : dist >= 0.76
-            ? 0
-            : 0.5 + 0.5 * Math.cos((Math.PI * (dist - 0.70)) / (0.76 - 0.70));
+            : 0.5 + 0.5 * Math.cos((Math.PI * (dist - 0.64)) / (maxR - 0.64));
 
-        let heightMultiplier = 0.22 * depth * mask;
+        let heightMultiplier = 0.075 * depth * mask;
         if (reliefStyle === 'intaglio') {
-          heightMultiplier = -0.18 * depth * mask;
+          heightMultiplier = -0.06 * depth * mask;
         } else if (reliefStyle === 'engraving') {
-          heightMultiplier = 0.09 * depth * mask;
+          heightMultiplier = 0.03 * depth * mask;
         }
 
         pos.setZ(i, lum * heightMultiplier);
       }
 
       plane.computeVertexNormals();
+      plane.attributes.position.needsUpdate = true;
+      plane.attributes.normal.needsUpdate = true;
       setReliefGeo(plane);
 
       const tex = new THREE.CanvasTexture(canvas);
@@ -360,43 +715,142 @@ function ImageReliefSculpture({
 
   if (mount === 'signet-ring') {
     const R = 1.15;
+    // Escala dimensional del cabezal [X-ancho, Y-grosor, Z-longitud]
+    const tableScale: [number, number, number] =
+      reliefRingShape === 'oval'
+        ? [0.64, 0.74, 0.82]
+        : reliefRingShape === 'round'
+        ? [0.72, 0.74, 0.72]
+        : [0.74, 0.74, 0.74];
+
+    const gemScale = 0.2 + Math.cbrt(carats) * 0.06;
+
     return (
-      <group ref={group} position={[0, -0.2, 0]} rotation={[0.34, -0.42, 0]}>
+      <group ref={group} position={[0, -0.14, 0]} rotation={[0.42, -0.42, 0]}>
         {/* Aro macizo de Chevalière */}
         <mesh castShadow receiveShadow>
           <torusGeometry args={[R, 0.15, 48, 140]} />
           {metalMat}
         </mesh>
+        {/* Grabado láser 3D interior del anillo de sello */}
+        <InnerRingLaserEngraving text={engraving} font={engravingFont} radius={R - 0.153} width={0.12} metalColor={metalColor} />
+
         {/* Hombros de transición hacia la meseta */}
-        <mesh position={[0, R - 0.06, 0]}>
+        <mesh position={[0, R - 0.06, 0]} scale={[tableScale[0], 1, tableScale[2]]}>
           <cylinderGeometry args={[0.66, 0.38, 0.34, 48]} />
           {metalMat}
         </mesh>
-        {/* Meseta octogonal / bisel de protección */}
-        <mesh position={[0, R + 0.1, 0]}>
-          <cylinderGeometry args={[0.68, 0.65, 0.08, 48]} />
+
+        {/* Meseta biselada protectora */}
+        <mesh position={[0, R + 0.1, 0]} scale={[tableScale[0], 1, tableScale[2]]}>
+          <cylinderGeometry args={[0.72, 0.66, 0.09, 48]} />
           {metalMat}
         </mesh>
-        <mesh position={[0, R + 0.14, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.64, 0.035, 20, 64]} />
+        <mesh position={[0, R + 0.145, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[tableScale[0], tableScale[2], 1]}>
+          <torusGeometry args={[0.66, 0.04, 24, 64]} />
           {metalMat}
         </mesh>
-        {/* Relieve esculpido en la meseta del sello */}
+        {/* Placa base interior del sello sobre la que reposa el relieve */}
+        <mesh position={[0, R + 0.142, 0]} scale={[tableScale[0], 1, tableScale[2]]}>
+          <cylinderGeometry args={[0.60, 0.60, 0.015, 48]} />
+          {metalMat}
+        </mesh>
+
+        {/* Relieve esculpido en la meseta del sello (perfectamente contenido dentro del bisel sin impurezas) */}
         {reliefGeo && (
           <mesh
             geometry={reliefGeo}
-            position={[0, R + 0.138, 0]}
+            position={[0, R + 0.144, 0]}
             rotation={[-Math.PI / 2, 0, 0]}
-            scale={[0.74, 0.74, 0.74]}
+            scale={[tableScale[0] * 0.78, tableScale[2] * 0.78, 1]}
           >
             {reliefMaterial}
           </mesh>
+        )}
+
+        {/* Gema Preciosa engastada en la Meseta del Anillo de Sello */}
+        {reliefGemEnabled !== false && (
+          <group
+            position={[
+              0,
+              R + 0.155,
+              reliefGemPosition === 'crown' ? -0.34 * (tableScale[2] / 0.74) : 0,
+            ]}
+          >
+            {/* Boquilla / Chatón biselado en oro macizo alineado a la normal +Y de la meseta */}
+            <mesh position={[0, 0, 0]}>
+              <cylinderGeometry args={[gemScale * 0.65, gemScale * 0.75, 0.04, 24]} />
+              {metalMat}
+            </mesh>
+            <mesh position={[0, 0.02, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[gemScale * 0.60, 0.02, 16, 24]} />
+              {metalMat}
+            </mesh>
+            <GemMesh
+              cut={cutShape}
+              scale={reliefGemPosition === 'crown' ? gemScale * 0.8 : gemScale}
+              position={[0, 0.026, 0]}
+              material={gemMat}
+            />
+          </group>
+        )}
+
+        {/* Hombros con Pavé de Diamantes (sobre la superficie exterior R + 0.15 del aro chevalière) */}
+        {reliefRingBand === 'pave' && (
+          <>
+            {[-1, 1].map((side) =>
+              [0, 1, 2, 3, 4].map((i) => {
+                const a = Math.PI / 2 + side * (0.36 + i * 0.105);
+                const rOuter = R + 0.148;
+                return (
+                  <group
+                    key={`pave-${side}-${i}`}
+                    position={[Math.cos(a) * rOuter, Math.sin(a) * rOuter, 0]}
+                    rotation={[0, 0, a - Math.PI / 2]}
+                  >
+                    {[-0.048, 0.048].map((zOff, zi) => (
+                      <group key={zi} position={[0, 0, zOff]}>
+                        <mesh position={[0, -0.005, 0]}>
+                          <cylinderGeometry args={[0.042, 0.032, 0.025, 16]} />
+                          {metalMat}
+                        </mesh>
+                        <GemMesh cut="round" scale={0.082} position={[0, 0.014, 0]} material={sideGemMat || gemMat} />
+                      </group>
+                    ))}
+                  </group>
+                );
+              })
+            )}
+          </>
+        )}
+
+        {/* Hombros Acanalados Art Déco (sobre la superficie exterior R + 0.15 del aro chevalière) */}
+        {reliefRingBand === 'fluted' && (
+          <>
+            {[-1, 1].map((side) =>
+              [0, 1, 2, 3].map((i) => {
+                const a = Math.PI / 2 + side * (0.36 + i * 0.115);
+                const rOuter = R + 0.142;
+                return (
+                  <mesh
+                    key={`flute-${side}-${i}`}
+                    position={[Math.cos(a) * rOuter, Math.sin(a) * rOuter, 0]}
+                    rotation={[0, 0, a - Math.PI / 2]}
+                  >
+                    <boxGeometry args={[0.045, 0.036, 0.25]} />
+                    {metalMat}
+                  </mesh>
+                );
+              })
+            )}
+          </>
         )}
       </group>
     );
   }
 
   if (mount === 'cutout-charm') {
+    const gemScale = 0.2 + Math.cbrt(carats) * 0.05;
     return (
       <group ref={group} position={[0, 0, 0]}>
         {/* Argolla superior de suspensión */}
@@ -404,6 +858,15 @@ function ImageReliefSculpture({
           <torusGeometry args={[0.13, 0.035, 20, 48]} />
           {metalMat}
         </mesh>
+        {reliefGemEnabled !== false && (
+          <group position={[0, reliefGemPosition === 'center' ? 0 : 0.84, 0.03]}>
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.12, 0.14, 0.035, 24]} />
+              {metalMat}
+            </mesh>
+            <GemMesh cut={cutShape} scale={gemScale * 0.8} position={[0, 0, 0.02]} rotation={[Math.PI / 2, 0, 0]} material={gemMat} />
+          </group>
+        )}
         {/* Silueta esculpida */}
         {reliefGeo && (
           <mesh geometry={reliefGeo} position={[0, 0, 0]}>
@@ -411,10 +874,19 @@ function ImageReliefSculpture({
           </mesh>
         )}
         {/* Placa trasera de soporte */}
-        <mesh position={[0, 0, -0.02]}>
+        <mesh position={[0, 0, -0.02]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[0.78, 0.78, 0.04, 64]} />
           {metalMat}
         </mesh>
+        {/* Grabado láser 3D en el reverso del dije */}
+        <MedallionBackLaserEngraving
+          text={engraving}
+          font={engravingFont}
+          metalColor={metalColor}
+          radius={0.74}
+          position={[0, 0, -0.0415]}
+          rotation={[0, Math.PI, 0]}
+        />
       </group>
     );
   }
@@ -447,6 +919,8 @@ function ImageReliefSculpture({
         <torusGeometry args={[0.93, 0.045, 20, 80]} />
         {metalMat}
       </mesh>
+      {/* Grabado láser 3D en el reverso del medallón con diploma de taller y dedicatoria */}
+      <MedallionBackLaserEngraving text={engraving} font={engravingFont} metalColor={metalColor} />
 
       {/* Borde Decorativo según preferencia */}
       {reliefBorder === 'milgrain' && (
@@ -484,14 +958,30 @@ function ImageReliefSculpture({
         </mesh>
       )}
 
-      {/* Gema de acento engastada en la corona superior del medallón */}
-      <group position={[0, 0.81, 0.072]}>
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.13, 0.11, 0.05, 24]} />
-          {metalMat}
-        </mesh>
-        <GemMesh cut={cutShape} scale={0.24} position={[0, 0, 0.02]} rotation={[Math.PI / 2, 0, 0]} material={gemMat} />
-      </group>
+      {/* Gema de acento engastada en la corona o centro del medallón */}
+      {reliefGemEnabled !== false && (
+        <>
+          {reliefGemPosition === 'center' ? (
+            /* Gema engastada en el centro del medallón */
+            <group position={[0, 0, 0.08]}>
+              <mesh rotation={[Math.PI / 2, 0, 0]}>
+                <cylinderGeometry args={[0.16, 0.18, 0.05, 24]} />
+                {metalMat}
+              </mesh>
+              <GemMesh cut={cutShape} scale={0.28 + Math.cbrt(carats) * 0.05} position={[0, 0, 0.025]} rotation={[Math.PI / 2, 0, 0]} material={gemMat} />
+            </group>
+          ) : (
+            /* Gema en la corona superior del medallón (puente del pendentif) */
+            <group position={[0, 0.81, 0.072]}>
+              <mesh rotation={[Math.PI / 2, 0, 0]}>
+                <cylinderGeometry args={[0.13, 0.15, 0.05, 24]} />
+                {metalMat}
+              </mesh>
+              <GemMesh cut={cutShape} scale={0.24 + Math.cbrt(carats) * 0.05} position={[0, 0, 0.02]} rotation={[Math.PI / 2, 0, 0]} material={gemMat} />
+            </group>
+          )}
+        </>
+      )}
 
       {/* Escultura en relieve con micro-facetado */}
       {reliefGeo && (
@@ -570,6 +1060,9 @@ function NecklaceModel({
   settingStyle = 'solitaire',
   carats,
   autoRotate = true,
+  metalColor,
+  engraving,
+  engravingFont,
 }: {
   metalMat: React.ReactNode;
   gemMat: React.ReactNode;
@@ -578,6 +1071,9 @@ function NecklaceModel({
   settingStyle?: SettingStyleKey;
   carats: number;
   autoRotate?: boolean;
+  metalColor: string;
+  engraving?: string;
+  engravingFont?: 'cursive' | 'roman' | 'modern';
 }) {
   const group = useRef<THREE.Group>(null);
   useFrame((_, delta) => {
@@ -613,6 +1109,15 @@ function NecklaceModel({
             );
           })}
         <GemMesh cut={cutShape} scale={s} position={[0, 0.12 * s, 0]} material={gemMat} />
+        {/* Grabado láser 3D en el reverso del dije */}
+        <MedallionBackLaserEngraving
+          text={engraving}
+          font={engravingFont}
+          metalColor={metalColor}
+          radius={0.235 * s}
+          position={[0, -0.06 - 0.1015 * s, 0]}
+          rotation={[Math.PI / 2, 0, 0]}
+        />
       </group>
     </group>
   );
@@ -686,6 +1191,9 @@ function BraceletModel({
   bandStyle = 'plain',
   carats,
   autoRotate = true,
+  metalColor,
+  engraving,
+  engravingFont,
 }: {
   metalMat: React.ReactNode;
   gemMat: React.ReactNode;
@@ -694,33 +1202,64 @@ function BraceletModel({
   bandStyle?: BandStyleKey;
   carats: number;
   autoRotate?: boolean;
+  metalColor: string;
+  engraving?: string;
+  engravingFont?: 'cursive' | 'roman' | 'modern';
 }) {
   const group = useRef<THREE.Group>(null);
   useFrame((_, delta) => {
     if (group.current && autoRotate !== false) group.current.rotation.y += delta * 0.26;
   });
-  const R = 1.42;
-  const s = 0.45 + Math.cbrt(carats) * 0.25;
+  const R = 1.22;
+  const s = 0.42 + Math.cbrt(carats) * 0.22;
+  const cuffArc = Math.PI * 1.72;
+  const cuffRotZ = -Math.PI * 0.36;
   return (
-    <group ref={group} position={[0, -0.1, 0]} rotation={[0.38, -0.3, 0]}>
-      {/* Brazalete Manchette / Rivière */}
-      <mesh castShadow>
-        <torusGeometry args={[R, 0.11, 48, 160, Math.PI * 1.75]} />
+    <group ref={group} position={[0, -0.04, 0]} rotation={[0.38, -0.3, 0]}>
+      {/* Brazalete Manchette / Rivière con apertura simétrica inferior */}
+      <mesh rotation={[0, 0, cuffRotZ]} castShadow>
+        <torusGeometry args={[R, 0.105, 48, 160, cuffArc]} />
         {metalMat}
       </mesh>
+      {/* Terminales redondeados de la manchette */}
+      {[cuffRotZ, cuffRotZ + cuffArc].map((ang, idx) => (
+        <mesh key={idx} position={[Math.cos(ang) * R, Math.sin(ang) * R, 0]}>
+          <sphereGeometry args={[0.105, 24, 24]} />
+          {metalMat}
+        </mesh>
+      ))}
+      {/* Grabado láser 3D en la cara interna del brazalete (arco abierto) */}
+      <InnerRingLaserEngraving
+        text={engraving}
+        font={engravingFont}
+        radius={R - 0.108}
+        width={0.095}
+        metalColor={metalColor}
+        arc={cuffArc * 0.85}
+        thetaStart={Math.PI * 0.15}
+      />
       {bandStyle === 'pave' &&
         Array.from({ length: 24 }).map((_, i) => {
-          const a = (i / 23) * Math.PI * 1.65 + 0.1;
+          const a = cuffRotZ + 0.14 + (i / 23) * (cuffArc - 0.28);
+          if (Math.abs(a - Math.PI / 2) < 0.22) return null;
           return (
-            <mesh key={i} position={[Math.cos(a) * (R + 0.1), Math.sin(a) * (R + 0.1), 0]}>
-              <octahedronGeometry args={[0.055, 1]} />
+            <mesh key={i} position={[Math.cos(a) * (R + 0.098), Math.sin(a) * (R + 0.098), 0]}>
+              <octahedronGeometry args={[0.052, 1]} />
               {sideGemMat}
             </mesh>
           );
         })}
-      {/* Gema estación central */}
-      <group position={[0, R + 0.12, 0]}>
-        <GemMesh cut={cutShape} scale={s} position={[0, 0.12 * s, 0]} material={gemMat} />
+      {/* Gema estación central con chatón de oro macizo */}
+      <group position={[0, R + 0.105, 0]}>
+        <mesh position={[0, 0.02, 0]}>
+          <cylinderGeometry args={[0.36 * s, 0.26 * s, 0.09, 28]} />
+          {metalMat}
+        </mesh>
+        <mesh position={[0, 0.065, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.35 * s, 0.024, 16, 32]} />
+          {metalMat}
+        </mesh>
+        <GemMesh cut={cutShape} scale={s} position={[0, 0.11 * s, 0]} material={gemMat} />
       </group>
     </group>
   );
@@ -748,6 +1287,12 @@ function RingModel({
   reliefContrast,
   reliefSmooth,
   reliefBorder,
+  reliefGemEnabled,
+  reliefGemPosition,
+  reliefRingBand,
+  reliefRingShape,
+  engraving,
+  engravingFont,
   customGlbUrl,
   overrideGlbMaterial,
 }: JewelrySceneProps) {
@@ -871,9 +1416,17 @@ function RingModel({
         reliefContrast={reliefContrast}
         reliefSmooth={reliefSmooth}
         reliefBorder={reliefBorder}
+        reliefGemEnabled={reliefGemEnabled}
+        reliefGemPosition={reliefGemPosition}
+        reliefRingBand={reliefRingBand}
+        reliefRingShape={reliefRingShape}
+        engraving={engraving}
+        engravingFont={engravingFont}
+        carats={carats}
         metalColor={metalColor}
         metalMat={metalMat}
         gemMat={gemMat}
+        sideGemMat={sideGemMat}
         cutShape={cutShape}
         finish={finish}
         autoRotate={autoRotate}
@@ -896,6 +1449,9 @@ function RingModel({
   if (jewelryType === 'necklace') {
     return (
       <NecklaceModel
+        metalColor={metalColor}
+        engraving={engraving}
+        engravingFont={engravingFont}
         metalMat={metalMat}
         gemMat={gemMat}
         sideGemMat={sideGemMat}
@@ -922,6 +1478,9 @@ function RingModel({
   if (jewelryType === 'bracelet') {
     return (
       <BraceletModel
+        metalColor={metalColor}
+        engraving={engraving}
+        engravingFont={engravingFont}
         metalMat={metalMat}
         gemMat={gemMat}
         sideGemMat={sideGemMat}
@@ -935,6 +1494,14 @@ function RingModel({
 
   return (
     <group ref={group} position={[0, -0.25, 0]} rotation={[0.24, -0.42, -0.1]}>
+      {/* Grabado láser 3D interior del anillo (se ajusta al radio interior real de cada perfil de aro) */}
+      <InnerRingLaserEngraving
+        text={engraving}
+        font={engravingFont}
+        radius={getRingInnerRadius(R, bandStyle, settingStyle)}
+        width={0.12}
+        metalColor={metalColor}
+      />
       {/* ==================== 1. BANDA / ARO ==================== */}
       {settingStyle === 'tension' ? (
         /* En montura de Suspensión Aérea (Tension), el aro se abre en la cima */
@@ -1346,7 +1913,7 @@ export const JewelryCanvas: React.FC<JewelrySceneProps> = (props) => {
   const fillColor = mood === 'candle' ? '#ff9b54' : mood === 'daylight' ? '#bfe0ff' : '#d6e4ff';
 
   return (
-    <Canvas camera={{ position: [0, 0.55, 4.85], fov: 34 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
+    <Canvas camera={{ position: [0, 0.5, 5.7], fov: 34 }} dpr={[1, 2]} gl={{ antialias: true, alpha: true }}>
       <ambientLight intensity={mood === 'daylight' ? 0.55 : 0.38} />
       <spotLight position={[4, 6, 4]} intensity={mood === 'candle' ? 110 : 95} angle={0.45} penumbra={1} color={keyColor} />
       <spotLight position={[-5, 3, -3]} intensity={55} angle={0.55} penumbra={1} color={fillColor} />
